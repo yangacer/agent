@@ -1,14 +1,16 @@
 #ifndef AGENT_CONNECTION_HPP_
 #define AGENT_CONNECTION_HPP_
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/streambuf.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/read.hpp>
 
 class connection;
 typedef boost::shared_ptr<connection> connection_ptr;
@@ -36,7 +38,13 @@ public:
   void connect(
     std::string const &server, std::string const &port, 
     connect_handler_type handler);
-  void read_some(io_handler_type hanler);
+
+  template<typename MutableBufferSequence>
+  void read_some(MutableBufferSequence const &buffers, io_handler_type hanler);
+
+  template<typename MutableBufferSequence>
+  void read(MutableBufferSequence const &buffers, io_handler_type handler);
+
   // TODO write()
   streambuf_type &io_buffer();
   socket_type &socket();
@@ -49,7 +57,7 @@ protected:
     connect_handler_type handler);
 
   void handle_read(
-    boost::system::error_code const& err, boost::uint32_t length, 
+    boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
     io_handler_type handler);
 private:
   boost::asio::io_service &io_service_;
@@ -58,5 +66,6 @@ private:
   streambuf_type iobuf_;
 };
 
+#include "detail/connection.ipp"
 
 #endif // header guard

@@ -1,6 +1,7 @@
-#include "connection.hpp"
+#include "agent/connection.hpp"
 #include <ostream>
-#include <boost/asio.hpp>
+#include <boost/asio/placeholders.hpp>
+#include <boost/asio/connect.hpp>
 #include <boost/ref.hpp>
 
 namespace asio = boost::asio;
@@ -19,31 +20,12 @@ void connection::connect(
   connect_handler_type handler)
 {
   resolver::query query(server, port);
-  // XXX is this reliable?
   iobuf_.consume(iobuf_.size());
   resolver_.async_resolve(
     query,
     boost::bind(
       &connection::handle_resolve, shared_from_this(), 
       asio_ph::error, asio_ph::iterator, handler));
-}
-
-void connection::read_some(io_handler_type handler) // TODO timeout
-{
-  if( iobuf_.size() ) {
-    io_service_.post(
-      boost::bind(handler, sys::error_code(), 
-                  iobuf_.size(), shared_from_this()));
-    iobuf_.consume(iobuf_.size());
-  } else {
-    boost::asio::async_read(
-      socket_,
-      iobuf_,
-      boost::asio::transfer_at_least(1),
-      boost::bind(
-        &connection::handle_read, shared_from_this(), 
-        _1, _2, handler));
-  }
 }
 
 connection::streambuf_type &
@@ -74,10 +56,10 @@ void connection::handle_resolve(
 
 void connection::handle_read(
     boost::system::error_code const& err, boost::uint32_t length, 
-    io_handler_type handler)
+    boost::uint32_t offset, io_handler_type handler)
 {
   io_service_.post(
-    boost::bind(handler, err, length, shared_from_this()));
-  iobuf_.consume(iobuf_.size());
+    boost::bind(handler, err, length + offset, shared_from_this()));
+  // TODO add speed limitation
 }
 

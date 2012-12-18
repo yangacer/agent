@@ -1,7 +1,7 @@
 #ifndef GAISWT_PARSER_DEF_HPP_
 #define GAISWT_PARSER_DEF_HPP_
 
-#include "parser.hpp"
+#include "agent/parser.hpp"
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include "fusion_adapt.hpp"

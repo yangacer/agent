@@ -1,5 +1,6 @@
-#include "parser_def.hpp"
-#include <boost/asio.hpp>
+#include "parser.ipp"
+#include <boost/asio/buffers_iterator.hpp>
+#include <boost/asio/streambuf.hpp>
 
 #define GAISWT_EXP_INST_PARSERS(IterType) \
   template url_esc_string<IterType>::url_esc_string(); \
@@ -14,6 +15,7 @@ namespace http { namespace parser {
   
   //GAISWT_EXP_INST_PARSERS(istream_iterator);
   GAISWT_EXP_INST_PARSERS(std::string::iterator);
+  GAISWT_EXP_INST_PARSERS(std::string::const_iterator);
 
   GAISWT_EXP_INST_PARSERS(
     boost::asio::buffers_iterator<

@@ -1,5 +1,6 @@
-#include "generator_def.hpp"
-#include <boost/asio.hpp>
+#include "generator.ipp"
+#include <boost/asio/buffers_iterator.hpp>
+#include <boost/asio/streambuf.hpp>
 
 #define GAISWT_EXP_INST_GENERATORS(IterType) \
   template url_esc_string<IterType>::url_esc_string(); \

@@ -1,10 +1,10 @@
 #ifndef GAISWT_FUSION_ADAPT_HPP_
 #define GAISWT_FUSION_ADAPT_HPP_
 
+#include "agent/entity.hpp"
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/fusion/include/io.hpp>
 #include <boost/fusion/include/std_pair.hpp>
-#include "entity.hpp"
 
 BOOST_FUSION_ADAPT_STRUCT(
   http::entity::field,
@@ -40,6 +40,6 @@ BOOST_FUSION_ADAPT_STRUCT(
   )
 
 // entity::uri adaption can not be shared among parser and generator
-// Thus, they are defined in *_def.hpp files.
+// Thus, they are defined in parser.ipp and generator.ipp files.
 
 #endif

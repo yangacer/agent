@@ -3,6 +3,8 @@ project(agent)
 
 include(use_c++11.cmake)
 
+include_directories (${PROJECT_SOURCE_DIR})
+
 set (Boost_ADDITIONAL_VERSIONS "1.52" "1.52.0" )
 find_package ( Boost 1.51.0 REQUIRED COMPONENTS 
                system
@@ -12,13 +14,5 @@ if(Boost_FOUND)
   link_directories(${Boost_LIBRARY_DIRS})
 endif()
 
-add_library ( 
-  agent
-  parser.cpp generator.cpp entity.cpp
-  connection.cpp
-  agent.cpp)
-target_link_libraries( agent ${Boost_LIBRARIES} pthread)
-
-add_executable ( test_agent test_agent.cpp)
-target_link_libraries ( test_agent agent )
-
+add_subdirectory ( detail )
+add_subdirectory ( test )

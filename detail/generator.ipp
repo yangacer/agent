@@ -5,7 +5,7 @@
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/fusion/container/map.hpp>
 #include <boost/fusion/include/adapt_adt.hpp>
-#include "generator.hpp"
+#include "agent/generator.hpp"
 #include "fusion_adapt.hpp"
 
 #ifdef GAISWT_DEBUG_GENERATOR  
