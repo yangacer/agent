@@ -21,6 +21,10 @@ struct field
   : name(name), value(boost::lexical_cast<std::string>(value))
   {}
 
+  template<typename T>
+  T value_as() const
+  { return boost::lexical_cast<T>(value); }
+
   std::string name, value;
 };
 
@@ -83,6 +87,9 @@ struct response
 
 std::vector<entity::field>::iterator 
 find_header(std::vector<entity::field>& headers, std::string const& name);
+
+std::vector<entity::field>::const_iterator 
+find_header(std::vector<entity::field> const &headers, std::string const& name);
 
 typedef entity::response response;
 typedef entity::request request;

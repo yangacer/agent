@@ -17,7 +17,7 @@ public:
   typedef boost::function<
     void(
       boost::system::error_code const &,
-      http::request &,
+      http::request const &,
       http::response const &, 
       connection_ptr)
     > handler_type;
@@ -26,13 +26,14 @@ public:
   ~agent();
 
   void operator()(std::string const &server, std::string const &port, 
-                  http::request &request, handler_type handler);
-  
-  void operator()(std::string const &url, http::request &request, 
                   handler_type handler);
+  
+  void operator()(std::string const &url, handler_type handler);
+  void fetch(std::string const &url, handler_type handler);
+  http::request &request();
 protected:
   void start_op(std::string const &server, std::string const &port, 
-                http::request &request, handler_type handler);
+                handler_type handler);
   void handle_connect(boost::system::error_code const &err);
   void handle_write_request(boost::system::error_code const &err,
                             boost::uint32_t len);
@@ -44,7 +45,7 @@ private:
   boost::asio::io_service &io_service_;
   connection_ptr  connection_;
   http::response  response_;
-  http::request   *request_ptr_;
+  http::request   request_;
   int             redirect_count_;
   handler_type    handler_;
 };

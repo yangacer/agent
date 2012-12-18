@@ -31,16 +31,17 @@ agent::agent(asio::io_service &ios)
 agent::~agent()
 {}
 
-void agent::operator()(
-  std::string const &server, std::string const &port, http::request &request, 
-  handler_type handler)
+void agent::operator()(std::string const &server, std::string const &port, 
+                       handler_type handler)
 { 
   redirect_count_ = 0;
-  start_op(server, port, request, handler); 
+  start_op(server, port, handler); 
 }
 
-void agent::operator()(
-  std::string const &url, http::request &request, handler_type handler)
+void agent::operator()(std::string const &url, handler_type handler)
+{ fetch(url, handler); }
+
+void agent::fetch(std::string const &url, handler_type handler)
 {
   sys::error_code http_err;
   http::entity::url url_;
@@ -51,18 +52,19 @@ void agent::operator()(
     notify_error(http_err);
     return;
   }
-  request.headers << http::entity::field("Host", url_.host);
-  request.query = url_.query;
-  this->operator()(url_.host, determine_service(url_), request, handler);
+  request_.headers << http::entity::field("Host", url_.host);
+  request_.query = url_.query;
+  this->operator()(url_.host, determine_service(url_), handler);
 }
 
+http::request &agent::request()
+{  return request_;  }
+
 void agent::start_op(
-  std::string const &server, std::string const &port, 
-  http::request &request, handler_type handler)
+  std::string const &server, std::string const &port, handler_type handler)
 {
   // TODO global management of connection
   connection_.reset(new connection(io_service_));
-  request_ptr_ = &request;
   handler_ = handler;
   connection_->connect(
     server, port,
@@ -75,13 +77,14 @@ void agent::handle_connect(boost::system::error_code const &err)
   if(!err) {
     std::ostream in(&connection_->io_buffer());
     in.flush();
-    in << *request_ptr_;
-    asio::async_write(connection_->socket(), connection_->io_buffer(),
-                      boost::bind(
-                        &agent::handle_write_request, this,
-                        asio_ph::error,
-                        asio_ph::bytes_transferred
-                        ));
+    in << request_;
+    asio::async_write(
+      connection_->socket(), connection_->io_buffer(),
+      boost::bind(
+        &agent::handle_write_request, this,
+        asio_ph::error,
+        asio_ph::bytes_transferred
+        ));
   } else {
     notify_error(err);
   }
@@ -114,7 +117,7 @@ void agent::handle_read_status_line(const boost::system::error_code& err)
       http_err.assign(sys::errc::bad_message, sys::system_category());
       connection_.reset();
       io_service_.post(
-        boost::bind(handler_, http_err, *request_ptr_,
+        boost::bind(handler_, http_err, request_,
                     response_, connection_));
       return;
     }
@@ -144,7 +147,7 @@ void agent::handle_read_headers(const boost::system::error_code& err)
       sys::error_code http_err(sys::errc::bad_message, sys::system_category());
       connection_.reset();
       io_service_.post(
-        boost::bind(handler_, http_err, *request_ptr_,
+        boost::bind(handler_, http_err, request_,
                     response_, connection_));
       return;
     }
@@ -157,7 +160,7 @@ void agent::handle_read_headers(const boost::system::error_code& err)
       redirect();
     } else {
       io_service_.post(
-        boost::bind(handler_, err, *request_ptr_, response_, connection_));
+        boost::bind(handler_, err, request_, response_, connection_));
     }
   } else {
     notify_error(err);
@@ -180,14 +183,14 @@ void agent::redirect()
   if(!http::parser::parse_url(beg, end, url))
     goto BAD_MESSAGE;
 
-  iter = http::find_header(request_ptr_->headers, "Host");
+  iter = http::find_header(request_.headers, "Host");
   iter->value = url.host;
-  request_ptr_->query = url.query;
+  request_.query = url.query;
   response_.message.clear();
   response_.headers.clear();
   redirect_count_++;
   connection_->close();
-  start_op(url.host, determine_service(url), *request_ptr_, handler_);
+  start_op(url.host, determine_service(url), handler_);
   return;
 
   BAD_MESSAGE:
@@ -205,7 +208,6 @@ void agent::notify_error(boost::system::error_code const &err)
 {
   connection_.reset();
   io_service_.post(
-    boost::bind(handler_, err, *request_ptr_, response_, connection_));
-  request_ptr_ = 0;
+    boost::bind(handler_, err, request_, response_, connection_));
 }
 

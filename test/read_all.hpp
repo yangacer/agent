@@ -1,21 +1,24 @@
-#ifndef READ_SOME_HPP_
-#define READ_SOME_HPP_
+#ifndef READ_ALL_HPP_
+#define READ_ALL_HPP_
 
+#include <cassert>
 #include <iostream>
 #include <string>
+#include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/asio/error.hpp>
 #include <openssl/md5.h>
 #include "handler.hpp"
 #include "agent/agent.hpp"
 #include "agent/entity.hpp"
 
-struct handler_read_some : handler
+struct handler_read_all : handler
 {
-  handler_read_some(boost::asio::io_service &ios)
-  : handler(ios)
+  handler_read_all(boost::asio::io_service &ios)
+    : handler(ios), size(0)
   {}
-
+  
   void handle_response(
     boost::system::error_code const &ec,
     http::request const &req,
@@ -23,7 +26,9 @@ struct handler_read_some : handler
     connection_ptr connection)
   {
     if(!ec) {
-      MD5_Init(&md5_ctx_);
+      auto h = http::find_header(resp.headers, "Content-Length");
+      size = h->value_as<size_t>();
+      buffer_.reset(new char[size]);
       read(connection);
     } else {
       std::cerr << "error: " << ec.message() << "\n";
@@ -32,9 +37,9 @@ struct handler_read_some : handler
 
   void read(connection_ptr connection)
   {
-    connection->read_some(
-      boost::asio::buffer(buffer_, 4096),
-      boost::bind(&handler_read_some::handle_read, this, _1, _2, _3));
+    connection->read(
+      boost::asio::buffer(buffer_.get(), size),
+      boost::bind(&handler_read_all::handle_read, this, _1, _2, _3));
   }
 
   void handle_read(
@@ -43,19 +48,18 @@ struct handler_read_some : handler
     connection_ptr connection)
   {
     if(!ec) {
-      MD5_Update(&md5_ctx_, (unsigned char*)buffer_, length);
-      read(connection);
-    } else if( ec == boost::asio::error::eof ) {
       md5_.resize(16);
-      MD5_Final((unsigned char*)&md5_[0], &md5_ctx_);
+      MD5((unsigned char*)buffer_.get(), length, (unsigned char*)&md5_[0]);
       handler::finish();
+    } else if( ec == boost::asio::error::eof ) {
+      assert ( false && "never reach");
     } else {
       std::cerr << "error: " << ec.message() << "\n";
     }
   }
-  
-  MD5_CTX md5_ctx_; 
-  char buffer_[4096];
+
+  boost::shared_ptr<char> buffer_;
+  size_t size;
 };
 
 #endif

@@ -39,8 +39,8 @@ void connection::read(M const &buffers, io_handler_type handler) // TODO timeout
   if( size > offset ) {
     boost::asio::async_read(
       socket_,
-      buffers_ + offset,
-      boost::asio::transfer_exactly(size - offset),
+      buffer(buffers_ + offset),
+      boost::asio::transfer_at_least(size - offset),
       boost::bind(&connection::handle_read, shared_from_this(), 
                   _1, _2, offset, handler));
   } else {
