@@ -97,7 +97,7 @@ response<Iterator>::response()
     int_ << '.' << int_ << sp << 
     karma::uint_ << sp <<
     +(karma::char_) << crlf <<
-    (header % crlf) << crlf
+    (header % crlf) << crlf << crlf
     ;
 }
 

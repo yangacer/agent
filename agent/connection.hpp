@@ -10,7 +10,6 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/read.hpp>
 
 class connection;
 typedef boost::shared_ptr<connection> connection_ptr;
@@ -27,7 +26,7 @@ public:
     > connect_handler_type;
 
   typedef boost::function<
-    void(boost::system::error_code const&, boost::uint32_t, connection_ptr)
+    void(boost::system::error_code const&, boost::uint32_t)
     > io_handler_type;
   typedef boost::asio::streambuf streambuf_type;
   typedef boost::asio::ip::tcp::socket socket_type;
@@ -39,11 +38,9 @@ public:
     std::string const &server, std::string const &port, 
     connect_handler_type handler);
 
-  template<typename MutableBufferSequence>
-  void read_some(MutableBufferSequence const &buffers, io_handler_type hanler);
-
-  template<typename MutableBufferSequence>
-  void read(MutableBufferSequence const &buffers, io_handler_type handler);
+  void read_some(boost::uint32_t at_least, io_handler_type handler);
+  void read_until(char const* pattern, io_handler_type handler);
+  void write(io_handler_type handler);
 
   // TODO write()
   streambuf_type &io_buffer();
@@ -65,7 +62,5 @@ private:
   socket_type socket_;
   streambuf_type iobuf_;
 };
-
-#include "detail/connection.ipp"
 
 #endif // header guard

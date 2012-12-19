@@ -2,6 +2,9 @@
 #include <ostream>
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/read_until.hpp>
+#include <boost/asio/write.hpp>
 #include <boost/ref.hpp>
 
 namespace asio = boost::asio;
@@ -28,6 +31,47 @@ void connection::connect(
       asio_ph::error, asio_ph::iterator, handler));
 }
 
+
+void connection::read_some(boost::uint32_t at_least, io_handler_type handler)
+{
+  boost::asio::async_read(
+    socket_,
+    iobuf_,
+    boost::asio::transfer_at_least(at_least),
+    boost::bind(
+      &connection::handle_read, shared_from_this(), 
+      _1, _2, iobuf_.size(), handler));
+}
+
+
+void connection::read_until(char const* pattern, io_handler_type handler)
+{
+  boost::asio::async_read_until(
+    socket_,
+    iobuf_,
+    pattern,
+    boost::bind(
+      &connection::handle_read, shared_from_this(), 
+      _1, _2, 0, handler));
+}
+
+void connection::handle_read(
+    boost::system::error_code const& err, boost::uint32_t length, 
+    boost::uint32_t offset, io_handler_type handler)
+{
+  io_service_.post(
+    boost::bind(handler, err, length));
+  // TODO add speed limitation
+}
+
+void connection::write(io_handler_type handler)
+{
+  boost::asio::async_write(
+    socket_, 
+    iobuf_, 
+    boost::bind(handler, _1, _2));
+}
+
 connection::streambuf_type &
 connection::io_buffer()
 { return iobuf_; }
@@ -52,14 +96,5 @@ void connection::handle_resolve(
   } else {
     io_service_.post(boost::bind(handler,err));
   }
-}
-
-void connection::handle_read(
-    boost::system::error_code const& err, boost::uint32_t length, 
-    boost::uint32_t offset, io_handler_type handler)
-{
-  io_service_.post(
-    boost::bind(handler, err, length + offset, shared_from_this()));
-  // TODO add speed limitation
 }
 

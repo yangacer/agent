@@ -19,17 +19,22 @@ public:
       boost::system::error_code const &,
       http::request const &,
       http::response const &, 
-      connection_ptr)
+      boost::asio::const_buffers_1 buffer)
     > handler_type;
 
   agent(boost::asio::io_service &ios);
   ~agent();
 
-  void operator()(std::string const &server, std::string const &port, 
-                  handler_type handler);
-  
-  void operator()(std::string const &url, handler_type handler);
-  void fetch(std::string const &url, handler_type handler);
+  void get(std::string const &url, 
+             http::entity::query_map_t const &parameter,
+             bool chunked_callback, 
+             handler_type handler);
+
+  void post(std::string const &url, 
+             http::entity::query_map_t const &parameter,
+             bool chunked_callback, 
+             handler_type handler);
+
   http::request &request();
 protected:
   void start_op(std::string const &server, std::string const &port, 
@@ -39,7 +44,11 @@ protected:
                             boost::uint32_t len);
   void handle_read_status_line(boost::system::error_code const &err);
   void handle_read_headers(boost::system::error_code const &err);
+  void read_body();
+  void handle_read_body(boost::system::error_code const &err, boost::uint32_t length);
   void redirect();
+  void notify_header(boost::system::error_code const &err);
+  void notify_chunk(boost::system::error_code const &err);
   void notify_error(boost::system::error_code const &err);
 private:
   boost::asio::io_service &io_service_;
@@ -47,6 +56,7 @@ private:
   http::response  response_;
   http::request   request_;
   int             redirect_count_;
+  bool            chunked_callback_;
   handler_type    handler_;
 };
 // TODO 

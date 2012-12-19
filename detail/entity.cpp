@@ -70,6 +70,17 @@ find_header(std::vector<entity::field> const & headers, std::string const& name)
   return headers.end();
 }
 
+std::vector<entity::field>::iterator
+get_header(std::vector<entity::field>& headers, std::string const& name)
+{
+  for(auto i = headers.begin(); i != headers.end(); ++i) {
+    if(i->name == name)
+      return i;
+  }
+  headers.push_back(entity::field(name, ""));
+  return headers.end() - 1;
+}
+
 } // namespace http
 
 std::ostream & operator << (std::ostream &os, http::entity::field const &f)

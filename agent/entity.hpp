@@ -91,6 +91,9 @@ find_header(std::vector<entity::field>& headers, std::string const& name);
 std::vector<entity::field>::const_iterator 
 find_header(std::vector<entity::field> const &headers, std::string const& name);
 
+std::vector<entity::field>::iterator
+get_header(std::vector<entity::field>& headers, std::string const& name);
+
 typedef entity::response response;
 typedef entity::request request;
 
