@@ -1,5 +1,6 @@
 #include "agent/agent.hpp"
 #include <string>
+#include <sstream>
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/read_until.hpp>
@@ -8,6 +9,7 @@
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
 #include "agent/parser.hpp"
+#include "agent/generator.hpp"
 #include "agent/pre_compile_options.hpp"
 #include "log.hpp"
 
@@ -37,7 +39,10 @@ namespace sys = boost::system;
 using boost::bind;
 
 agent::agent(asio::io_service &ios)
-: io_service_(ios), redirect_count_(0), chunked_callback_(false)
+: io_service_(ios), 
+  connection_(new connection(ios)),
+  redirect_count_(0), 
+  chunked_callback_(false)
 {}
 
 agent::~agent()
@@ -50,6 +55,7 @@ void agent::get(std::string const &url,
 {
   sys::error_code http_err;
   http::entity::url url_;
+  std::ostream os(&connection_->io_buffer());
   auto beg(url.begin()), end(url.end());
 
   if(!http::parser::parse_url(beg, end, url_)) {
@@ -68,9 +74,50 @@ void agent::get(std::string const &url,
 
   redirect_count_ = 0;
   chunked_callback_ = chunked_callback;
+  os.flush();
+  os << request_;
   start_op(url_.host, determine_service(url_), handler);
 }
 
+void agent::post(std::string const &url,
+          http::entity::query_map_t const &get_parameter,
+          http::entity::query_map_t const &post_parameter,
+          bool chunked_callback, 
+          handler_type handler)
+{
+  sys::error_code http_err;
+  http::entity::url url_;
+  std::ostream os(&connection_->io_buffer());
+  std::stringstream body;
+  auto beg(url.begin()), end(url.end());
+  http::generator::ostream_iterator body_begin(body);
+
+  if(!http::parser::parse_url(beg, end, url_)) {
+    http_err.assign(sys::errc::invalid_argument, sys::system_category());
+    notify_error(http_err);
+    return;
+  }
+  request_.method = "POST";
+  request_.http_version_major = 1;
+  request_.http_version_minor = 1;
+  auto header = http::get_header(request_.headers, "Host");
+  if(header->value.empty()) header->value = url_.host;
+  header = http::get_header(request_.headers, "Content-Type");
+  if(header->value.empty()) header->value = 
+    "application/x-www-form-urlencoded";
+  setup_default_headers(request_.headers);
+  request_.query.path = url_.query.path;
+  request_.query.query_map = get_parameter;
+  http::generator::generate_query_map(body_begin, post_parameter);
+  header = http::get_header(request_.headers, "Content-Length");
+  header->value_as(body.str().size());
+
+  redirect_count_ = 0;
+  chunked_callback_ = chunked_callback;
+  os.flush();
+  os << request_ << body.str();
+  start_op(url_.host, determine_service(url_), handler);
+}
 
 http::request &agent::request()
 {  return request_;  }
@@ -79,7 +126,6 @@ void agent::start_op(
   std::string const &server, std::string const &port, handler_type handler)
 {
   // TODO global management of connection
-  connection_.reset(new connection(io_service_));
   handler_ = handler;
   connection_->connect(
     server, port,
@@ -90,9 +136,6 @@ void agent::start_op(
 void agent::handle_connect(boost::system::error_code const &err)
 {
   if(!err) {
-    std::ostream in(&connection_->io_buffer());
-    in.flush();
-    in << request_;
 #ifdef AGENT_LOG_HEADERS
     AGENT_TIMED_LOG("request headers", request_);
 #endif

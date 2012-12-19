@@ -39,14 +39,24 @@ struct field
 };
 
 template<typename Iterator>
+struct query_map
+: karma::grammar<Iterator, entity::query_map_t()>
+{
+  query_map();
+  karma::rule<Iterator, entity::query_map_t()> start;
+  karma::rule<Iterator, entity::query_value_t()> query_value;
+  karma::rule<Iterator, std::pair<std::string, entity::query_value_t>()> query_pair;
+  url_esc_string<Iterator> esc_string;
+  karma::int_generator< boost::int64_t > int64_;
+};
+
+template<typename Iterator>
 struct uri
 : karma::grammar<Iterator, entity::uri()>
 {
   uri();
   karma::rule<Iterator, entity::uri()> start;
-  karma::rule<Iterator, entity::query_value_t()> query_value;
-  karma::rule<Iterator, std::pair<std::string, entity::query_value_t>()> query_pair;
-  karma::rule<Iterator, entity::query_map_t()> query_map;
+  query_map<Iterator> query;
   url_esc_string<Iterator> esc_string;
   karma::int_generator< boost::int64_t > int64_;
 };
@@ -80,6 +90,7 @@ struct request
 
 GEN_GENERATE_FN(url_esc_string)
 GEN_GENERATE_FN(field)
+GEN_GENERATE_FN(query_map)
 GEN_GENERATE_FN(uri)
 GEN_GENERATE_FN(response)
 GEN_GENERATE_FN(request)

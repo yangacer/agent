@@ -25,6 +25,10 @@ struct field
   T value_as() const
   { return boost::lexical_cast<T>(value); }
 
+  template<typename T>
+  void value_as(T val)
+  { value = boost::lexical_cast<std::string>(val); }
+ 
   std::string name, value;
 };
 

@@ -23,7 +23,6 @@ void connection::connect(
   connect_handler_type handler)
 {
   resolver::query query(server, port);
-  iobuf_.consume(iobuf_.size());
   resolver_.async_resolve(
     query,
     boost::bind(

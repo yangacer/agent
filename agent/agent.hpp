@@ -31,7 +31,8 @@ public:
              handler_type handler);
 
   void post(std::string const &url, 
-             http::entity::query_map_t const &parameter,
+             http::entity::query_map_t const &get_parameter,
+             http::entity::query_map_t const &post_parameter,
              bool chunked_callback, 
              handler_type handler);
 

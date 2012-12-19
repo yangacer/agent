@@ -58,29 +58,33 @@ field<Iterator>::field()
 }
 
 template<typename Iterator>
-uri<Iterator>::uri()
-: uri::base_type(start)
+query_map<Iterator>::query_map()
+: query_map::base_type(start)
 {
   query_value =
     karma::double_ | int64_ | esc_string(ESCAPE_PATH_DELIM)
     ;
-  
   query_pair =
     esc_string(ESCAPE_PATH_DELIM) << '=' <<
     query_value
     ;
-
-  query_map =
-    (query_pair % '&')
+  start =
+    query_pair % '&'
     ;
 
+  GAISWT_DEBUG_GENERATOR_GEN("query_map")
+}
+
+template<typename Iterator>
+uri<Iterator>::uri()
+: uri::base_type(start)
+{
   start =
     esc_string(RESERVE_PATH_DELIM) <<
     // false if query_map is not empty
     (&karma::false_ <<  '?' | karma::skip[karma::bool_]) <<
-    -query_map
+    -query
     ;
-
 }
 
 template<typename Iterator>
