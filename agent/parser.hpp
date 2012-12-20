@@ -104,9 +104,17 @@ struct request_first_line
 GEN_PARSE_FN(response_first_line)
 GEN_PARSE_FN(request_first_line)
 GEN_PARSE_FN(header_list)
-GEN_PARSE_FN(url_esc_string)
 GEN_PARSE_FN(uri)
 GEN_PARSE_FN(url)
+
+template<typename Iter, typename Struct> 
+bool parse_url_esc_string(Iter &beg, Iter &end, Struct &obj) 
+{ 
+  static url_esc_string<Iter> parser; 
+  return qi::phrase_parse( 
+    beg, end, parser((char const*)"/"), qi::space, obj); 
+} 
+
 
 }} // namespace http::parser
 

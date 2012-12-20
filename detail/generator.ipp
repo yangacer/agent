@@ -18,7 +18,7 @@ namespace phoenix = boost::phoenix;
     start.name(X); \
     debug(start); 
 #else // GAISWT_DEBUG_GENERATOR
-#define GAISWT_DEBUG_GENERATOR_GEN(X)
+#define GAISWT_DEBUG_GENERATOR_GEN(X) {}
 #endif // GAISWT_DEBUG_GENERATOR
 
 
@@ -62,7 +62,9 @@ query_map<Iterator>::query_map()
 : query_map::base_type(start)
 {
   query_value =
-    karma::double_ | int64_ | esc_string(ESCAPE_PATH_DELIM)
+    karma::double_ | 
+    int64_ |
+    esc_string(ESCAPE_PATH_DELIM) 
     ;
   query_pair =
     esc_string(ESCAPE_PATH_DELIM) << '=' <<
@@ -72,7 +74,7 @@ query_map<Iterator>::query_map()
     query_pair % '&'
     ;
 
-  GAISWT_DEBUG_GENERATOR_GEN("query_map")
+  //GAISWT_DEBUG_GENERATOR_GEN("query_map")
 }
 
 template<typename Iterator>

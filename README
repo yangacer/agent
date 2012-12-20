@@ -1,0 +1,18 @@
+#Requirements
+
+- boost 1.52+
+- openssl
+
+#Installation
+
+    mkdir build
+    cd build
+    cmake .. -DCMAKE_PREFIX_PATH=/path/to/include -DCMAKE_INSTALL_PREFIX=/path/for/install
+    make install  # administrator privilege may be required
+
+#Example
+
+- test/base.cpp
+
+
+Yang, Acer 12,20,2012.

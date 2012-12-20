@@ -1,5 +1,6 @@
-#include "agent/connection.hpp"
+#include "connection.hpp"
 #include <ostream>
+#include <boost/bind.hpp>
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/read.hpp>
@@ -13,7 +14,9 @@ namespace sys = boost::system;
 
 connection::connection(boost::asio::io_service &io_service)
   :  io_service_(io_service), resolver_(io_service), socket_(io_service)
-{}
+{
+  iobuf_.prepare(2048);
+}
 
 connection::~connection()
 {}
