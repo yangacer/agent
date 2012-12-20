@@ -118,10 +118,15 @@ struct tube_agent
         size_t size = asio::buffer_size(buffers);
         if( size == 0 ) {
           auto h = http::find_header(resp.headers, "Content-Length");
-          std::cerr << "Content length: " << h->value;
+          std::cerr << "Content length: " << h->value << "\n\n\n";
+          total_ = h->value_as<size_t>();
         } else {
           received_ += size;
-          std::cerr << size << " ";
+          std::cout.setf(std::ios::fixed);
+          std::cout.precision(2);
+          std::cout.setf(std::ios::showpoint);
+          std::cout.width(12);
+          std::cout << "\033[F\033[J" << (100*received_)/(double)total_ << " %\n";
         }
       } else {
         std::cerr << resp.status_code << "\n";
@@ -138,6 +143,8 @@ private:
   agent agent_;
   std::string itag_, url_;
   size_t received_;
+  size_t total_;
+
 };
 
 int main(int argc, char** argv)

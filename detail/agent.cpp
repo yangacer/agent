@@ -280,7 +280,6 @@ void agent::redirect()
 {
   namespace sys = boost::system;
   sys::error_code http_err;
-
   http::entity::url url;
   auto iter = http::find_header(response_.headers, "Location"); 
   auto beg(iter->value.begin()), end(iter->value.end());
