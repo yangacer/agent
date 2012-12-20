@@ -60,18 +60,13 @@ struct url
 
 struct request
 {
-  enum stock {
-    GET_PAGE = 0
-  };
-
   std::string method;
   uri query;
   int http_version_major,
       http_version_minor;
   std::vector<field> headers;
 
-  static request 
-  stock_request(stock type);
+  void clear();
 };
 
 struct response
@@ -85,6 +80,7 @@ struct response
 
   static response
   stock_response(status_type s);
+  void clear();
 };
 
 } // namespace entity

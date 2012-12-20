@@ -5,7 +5,8 @@
 #include <boost/cstdint.hpp>
 #include <boost/function.hpp>
 #include <boost/asio/io_service.hpp>
-#include "connection.hpp"
+#include <boost/asio/ip/tcp.hpp>
+#include "connection_fwd.hpp"
 #include "entity.hpp"
 
 class agent
@@ -25,18 +26,24 @@ public:
   agent(boost::asio::io_service &ios);
   ~agent();
 
+  // TODO Collect similar code in following 3 functions
+  void get(std::string const &url, bool chunked_callback,
+           handler_type handler);
+
   void get(std::string const &url, 
-             http::entity::query_map_t const &parameter,
-             bool chunked_callback, 
-             handler_type handler);
+           http::entity::query_map_t const &parameter,
+           bool chunked_callback, 
+           handler_type handler);
 
   void post(std::string const &url, 
-             http::entity::query_map_t const &get_parameter,
-             http::entity::query_map_t const &post_parameter,
-             bool chunked_callback, 
-             handler_type handler);
+            http::entity::query_map_t const &get_parameter,
+            http::entity::query_map_t const &post_parameter,
+            bool chunked_callback, 
+            handler_type handler);
 
+  // TODO void cancel();
   http::request &request();
+  boost::asio::io_service& io_service();
 protected:
   void start_op(std::string const &server, std::string const &port, 
                 handler_type handler);

@@ -30,7 +30,7 @@ namespace phoenix = boost::phoenix;
     debug(start); \
 
 #else // GAISWT_DEBUG_PARSER
-#define GAISWT_DEBUG_PARSER_GEN(X)
+#define GAISWT_DEBUG_PARSER_GEN(X) {}
 #endif // GAISWT_DEBUG_PARSER
 
 BOOST_FUSION_ADAPT_STRUCT(
@@ -102,7 +102,8 @@ uri<Iterator>::uri()
   //int64_parser int64_;
 
   query_value =
-    real_ | int64_ | esc_string((char const*)"&= #") //+(char_ - char_("&= #"))
+    esc_string((char const*)"&= #") | //+(char_ - char_("&= #"))
+    real_ | int64_ 
     ;
 
   query_pair %=
@@ -126,9 +127,11 @@ uri<Iterator>::uri()
 
   GAISWT_DEBUG_PARSER_GEN("uri");
 
+  /*
   debug(query_map);
   debug(query_pair);
   debug(query_value);
+  */
 }
 
 template<typename Iterator>
@@ -151,7 +154,7 @@ url<Iterator>::url()
   query.name("query");
 
   GAISWT_DEBUG_PARSER_GEN("url");
-
+ 
 }
 
 template<typename Iterator>

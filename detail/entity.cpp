@@ -5,22 +5,14 @@
 namespace http {
 namespace entity {
 
-request
-request::stock_request(stock type)
+void request::clear()
 {
-  request rt;
-  switch(type){
-  case GET_PAGE:
-    rt.method = "GET";
-    rt.http_version_major =
-      rt.http_version_minor = 1;
-    rt.headers.emplace_back("Accept", "*/*");
-    rt.headers.emplace_back("Connection", "close");
-    break;
-  default:
-    break;
-  }
-  return rt;
+  method.clear();
+  query.path.clear();
+  query.query_map.clear();
+  http_version_major = 0;
+  http_version_minor = 0;
+  headers.clear();
 }
 
 response
@@ -48,6 +40,15 @@ response::stock_response(status_type type)
     break;
   }
   return resp;
+}
+
+void response::clear()
+{
+  http_version_major = 0;
+  http_version_minor = 0;
+  status_code = 0;
+  message.clear();
+  headers.clear();
 }
 
 } // namespace entity

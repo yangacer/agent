@@ -1,18 +1,14 @@
 #ifndef AGENT_CONNECTION_HPP_
 #define AGENT_CONNECTION_HPP_
-#include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/enable_shared_from_this.hpp>
-#include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
-
-class connection;
-typedef boost::shared_ptr<connection> connection_ptr;
+#include "agent/connection_fwd.hpp"
 
 class connection 
 : public boost::enable_shared_from_this<connection>,
@@ -42,7 +38,6 @@ public:
   void read_until(char const* pattern, io_handler_type handler);
   void write(io_handler_type handler);
 
-  // TODO write()
   streambuf_type &io_buffer();
   socket_type &socket();
   bool is_open() const;
@@ -62,5 +57,6 @@ private:
   socket_type socket_;
   streambuf_type iobuf_;
 };
+// TODO 1. This header can be hide from users
 
 #endif // header guard

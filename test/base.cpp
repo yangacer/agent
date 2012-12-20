@@ -1,4 +1,5 @@
 #include <iostream>
+#include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include "agent/agent.hpp"
 

@@ -11,6 +11,7 @@
 #include "agent/parser.hpp"
 #include "agent/generator.hpp"
 #include "agent/pre_compile_options.hpp"
+#include "connection.hpp"
 #include "log.hpp"
 
 std::string 
@@ -40,7 +41,6 @@ using boost::bind;
 
 agent::agent(asio::io_service &ios)
 : io_service_(ios), 
-  connection_(new connection(ios)),
   redirect_count_(0), 
   chunked_callback_(false)
 {}
@@ -48,11 +48,42 @@ agent::agent(asio::io_service &ios)
 agent::~agent()
 {}
 
+void agent::get(std::string const &url, bool chunked_callback,
+                handler_type handler)
+{
+  connection_.reset(new connection(io_service_));
+
+  sys::error_code http_err;
+  http::entity::url url_;
+  std::ostream os(&connection_->io_buffer());
+  auto beg(url.begin()), end(url.end());
+
+  if(!http::parser::parse_url(beg, end, url_)) {
+    http_err.assign(sys::errc::invalid_argument, sys::system_category());
+    notify_error(http_err);
+    return;
+  }
+  request_.method = "GET";
+  request_.http_version_major = 1;
+  request_.http_version_minor = 1;
+  auto header = http::get_header(request_.headers, "Host");
+  if(header->value.empty()) header->value = url_.host;
+  setup_default_headers(request_.headers);
+  request_.query = url_.query;
+
+  redirect_count_ = 0;
+  chunked_callback_ = chunked_callback;
+  os.flush();
+  os << request_;
+  start_op(url_.host, determine_service(url_), handler);
+}
 void agent::get(std::string const &url, 
                   http::entity::query_map_t const &parameter,
                   bool chunked_callback, 
                   handler_type handler)
 {
+  connection_.reset(new connection(io_service_));
+
   sys::error_code http_err;
   http::entity::url url_;
   std::ostream os(&connection_->io_buffer());
@@ -85,6 +116,8 @@ void agent::post(std::string const &url,
           bool chunked_callback, 
           handler_type handler)
 {
+  connection_.reset(new connection(io_service_));
+
   sys::error_code http_err;
   http::entity::url url_;
   std::ostream os(&connection_->io_buffer());
@@ -122,10 +155,14 @@ void agent::post(std::string const &url,
 http::request &agent::request()
 {  return request_;  }
 
+asio::io_service &agent::io_service()
+{ return io_service_; }
+
 void agent::start_op(
   std::string const &server, std::string const &port, handler_type handler)
 {
   // TODO global management of connection
+  response_.clear();
   handler_ = handler;
   connection_->connect(
     server, port,
@@ -237,7 +274,6 @@ void agent::handle_read_body(
   } else {
     notify_error(err);
   }
-
 }
 
 void agent::redirect()
@@ -249,21 +285,16 @@ void agent::redirect()
   auto iter = http::find_header(response_.headers, "Location"); 
   auto beg(iter->value.begin()), end(iter->value.end());
 
+  if(request_.method == "POST") 
+    goto OPERATION_CANCEL;
   if(AGENT_MAXIMUM_REDIRECT_COUNT <= redirect_count_)
     goto OPERATION_CANCEL;
   if(iter == response_.headers.end())
     goto BAD_MESSAGE;
-  if(!http::parser::parse_url(beg, end, url))
-    goto BAD_MESSAGE;
-
-  iter = http::find_header(request_.headers, "Host");
-  iter->value = url.host;
-  request_.query = url.query;
-  response_.message.clear();
-  response_.headers.clear();
+  
   redirect_count_++;
-  connection_->close();
-  start_op(url.host, determine_service(url), handler_);
+  get(iter->value, chunked_callback_, handler_);
+  
   return;
 
   BAD_MESSAGE:
@@ -295,5 +326,7 @@ void agent::notify_error(boost::system::error_code const &err)
   handler_(err, request_, response_, 
     connection_->io_buffer().data());
   connection_.reset();
+  request_.clear();
+  response_.clear();
 }
 
