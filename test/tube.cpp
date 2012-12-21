@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include "agent/agent.hpp"
 #include "agent/parser.hpp"
 
@@ -14,7 +15,8 @@ template<typename Iter>
 std::string get_value(
   Iter& beg, Iter& end,
   std::string &field, std::string const &delim)
-{
+  // {{{
+{ 
   Iter i;
   std::string rt;
   i = std::find(beg, end, '=');
@@ -29,89 +31,120 @@ std::string get_value(
   }
   return rt;
 }
+// }}}
 
 struct tube_agent
 {
   tube_agent(asio::io_service &ios)
-    : agent_(ios), received_(0)
-    {}
+  : agent_(ios), received_(0), 
+  previous_delay_(5), blocked_timer_(ios)
+  {}
 
-  void start(std::string const &url,
+  void get(std::string const &url,
              std::string const &itag)
+  // {{{
   {
     itag_ = itag;
-    agent_.get(
-      url, false, 
+    page_url_ = url;
+    agent_.async_get(url, false, 
       bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
+  // }}}
 
+protected:
   void handle_page(
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
+    // {{{
   {
+    using std::cerr;
+    using std::string;
+
     if(!ec) {
-      
+
     } else if(eof == ec) {
-      auto beg(asio::buffers_begin(buffers)), 
-        end(asio::buffers_end(buffers));
-      decltype(beg) iter;
-      std::string 
-        pattern("\"url_encoded_fmt_stream_map\": \""),
-        delim("\\u0026");
-      std::string itag, signature, url, field, value;
-      char const* data = 0;
-      int required = 0;
-      iter = std::search(beg, end, pattern.begin(), pattern.end());
-      if(iter != end) {
-        beg = iter + pattern.size();
-        iter = std::find(beg, end, '"');
-        if( iter != end ) {
-          end = iter;
-          //std::cerr.write(&*beg, end - beg);
-          while( beg < end ) {
-            decltype(end) group_end = std::find(beg, end, ',');
-            int required = 0;
-            for(int i=0;i<6 && required < 3;++i) {
-              value = get_value(beg, group_end, field, delim);
-              if( field == "itag") {
-                itag = value;
-                ++required;
-              } else if( field == "sig" ) {
-                signature = value;
-                ++required;
-              } else if ( field == "url" ) {
-                url = value;
-                ++required;
-              }
-            }
-            if(itag == itag_) break;
-            beg = group_end + 1;
+     if( 200 == resp.status_code ) {
+        //auto header = http::find_header(resp.headers, "Content-Length");
+        //if(header == resp.headers.end()) {
+        //  delayed_get();
+        //} else {
+          string url, signature;
+
+          if(get_link(buffers, itag_, url, signature)) {
+            url.append("%26signature%3D").append(signature);
+            auto beg(url.begin()), end(url.end());
+            video_url_.clear();
+            http::parser::parse_url_esc_string(beg, end, video_url_);
+            agent_.async_get(video_url_, true, 
+                       bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
+
+          } else {
+            auto beg(asio::buffers_begin(buffers)), 
+              end(asio::buffers_end(buffers));
+            std::cerr.write(&*beg, end - beg);
+            std::cerr << "\n---- no matched itag\n";
           }
-        }
-      }
-      if(itag == itag_) {
-        url.append("%26signature%3D").append(signature);
-        auto beg(url.begin()), end(url.end());
-        http::parser::parse_url_esc_string(beg, end, url_);
-        // Post to event queue such that current context
-        // of agent_ can be cleanuped
-        agent_.io_service().post(
-          bind(&tube_agent::get_video, this));
+        //}
+      } else if(403 == resp.status_code) {
+        delayed_get();
+        std::cerr << "\n---- http error code (" << resp.status_code << "\n";
       }
     } else {
       std::cerr << "error: " << ec.message() << "\n";
     }
   }
-  
-  void get_video()
+  // }}}
+
+  bool get_link(asio::const_buffers_1 &buffers, std::string const &target_itag, 
+                std::string &url, std::string &signature)
+  // {{{
   {
-    agent_.get(url_, true, 
-               bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
+    using namespace std;
+
+    auto beg(asio::buffers_begin(buffers)), 
+         end(asio::buffers_end(buffers));
+    decltype(beg) iter;
+    string 
+      pattern("\"url_encoded_fmt_stream_map\": \""),
+      delim("\\u0026");
+    string itag, field, value;
+    int required = 0;
+
+    iter = search(beg, end, pattern.begin(), pattern.end());
+    if(iter != end) {
+      beg = iter + pattern.size();
+      iter = find(beg, end, '"');
+      if( iter != end ) {
+        end = iter;
+        while( beg < end ) {
+          decltype(end) group_end = find(beg, end, ',');
+          required = 0;
+          for(int i=0;i<6 && required < 3;++i) {
+            value = get_value(beg, group_end, field, delim);
+            if( field == "itag") {
+              itag = value;
+              ++required;
+            } else if( field == "sig" ) {
+              signature = value;
+              ++required;
+            } else if ( field == "url" ) {
+              url = value;
+              ++required;
+            }
+          }
+          if(itag == target_itag) break;
+          beg = group_end + 1;
+        }
+      }
+    }
+    return required == 3;
   }
+  // }}}
 
   void handle_video(
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
+  // {{{
   {
     if(!ec) {
       if(resp.status_code == 200) {
@@ -128,6 +161,8 @@ struct tube_agent
           std::cout.width(12);
           std::cout << "\033[F\033[J" << (100*received_)/(double)total_ << " %\n";
         }
+      } else if( resp.status_code == 403 ) {
+        delayed_get();
       } else {
         std::cerr << resp.status_code << "\n";
       }
@@ -138,20 +173,32 @@ struct tube_agent
       std::cerr << "error: " << ec.message() << "\n";
     }
   }
+  // }}}
 
+  void delayed_get() 
+  {
+    std::cerr << 
+      "Oops, we are blocked! "
+      "This procedure will take place again after " << 
+      previous_delay_ << " seconds.\n";  
+    blocked_timer_.expires_from_now(boost::posix_time::seconds(previous_delay_));
+    blocked_timer_.async_wait(bind(&tube_agent::get, this, page_url_, itag_));
+    previous_delay_ <<= 1;
+  }
 private:
   agent agent_;
-  std::string itag_, url_;
+  std::string itag_, page_url_, video_url_;
   size_t received_;
   size_t total_;
-
+  int previous_delay_;
+  asio::deadline_timer blocked_timer_;
 };
 
 int main(int argc, char** argv)
 {
   asio::io_service ios;
   tube_agent ta(ios);
-  ta.start("http://www.youtube.com/watch?v=2wBD0Onu6KI", "34");
+  ta.get("http://www.youtube.com/watch?v=88m2XdyGXRY", "34");
 
   ios.run();
   return 0;

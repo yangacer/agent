@@ -68,14 +68,15 @@ int main()
   // do 'get' request
   // setup parameters
   get_param.insert({"v","8Q2P4LjuVA8"});
-  getter.get( "http://www.youtube.com/watch", get_param, true,
-              boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
+  getter.async_get_parameter( 
+    "http://www.youtube.com/watch", get_param, true,
+    boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do 'post' request
   get_param.clear();
   get_param.insert({"dir","aceryang"});
   post_param.insert({"encoded", "\r\n1234 6"});
-  poster.post( "http://www.posttestserver.com/", get_param, post_param, false,
+  poster.async_post( "http://www.posttestserver.com/", get_param, post_param, false,
               boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
   ios.run();
   return 0;

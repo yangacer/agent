@@ -14,6 +14,8 @@
 #include "connection.hpp"
 #include "log.hpp"
 
+#define AGENT_STR "Opera/9.80 (Windows NT 6.1; U; en) Presto/2.9.168 Version/11.52"
+
 std::string 
 determine_service(http::entity::url const & url)
 {
@@ -31,7 +33,7 @@ setup_default_headers(std::vector<http::entity::field> &headers)
   header = http::get_header(headers, "Connection");
   if(header->value.empty()) header->value = "close";
   header = http::get_header(headers, "User-Agent");
-  if(header->value.empty()) header->value = "agent/http";
+  if(header->value.empty()) header->value = AGENT_STR;
 }
 
 namespace asio = boost::asio;
@@ -48,9 +50,15 @@ agent::agent(asio::io_service &ios)
 agent::~agent()
 {}
 
-void agent::get(std::string const &url, bool chunked_callback,
-                handler_type handler)
+void agent::async_get(std::string const &url, bool chunked_callback,
+                handler_type handler, bool async)
 {
+  if( async ) {
+    io_service_.post(
+      boost::bind(&agent::async_get, this, url, chunked_callback, 
+                  handler, false));
+    return;
+  }
   connection_.reset(new connection(io_service_));
 
   sys::error_code http_err;
@@ -77,11 +85,22 @@ void agent::get(std::string const &url, bool chunked_callback,
   os << request_;
   start_op(url_.host, determine_service(url_), handler);
 }
-void agent::get(std::string const &url, 
+
+void agent::async_get_parameter(std::string const &url, 
                   http::entity::query_map_t const &parameter,
                   bool chunked_callback, 
-                  handler_type handler)
+                  handler_type handler,
+                  bool async)
 {
+  if( async ) {
+    io_service_.post(
+      bind(&agent::async_get_parameter, this, 
+           url,
+           parameter, 
+           chunked_callback, 
+           std::forward<handler_type>(handler), false));
+    return;
+  }
   connection_.reset(new connection(io_service_));
 
   sys::error_code http_err;
@@ -110,12 +129,19 @@ void agent::get(std::string const &url,
   start_op(url_.host, determine_service(url_), handler);
 }
 
-void agent::post(std::string const &url,
+void agent::async_post(std::string const &url,
           http::entity::query_map_t const &get_parameter,
           http::entity::query_map_t const &post_parameter,
           bool chunked_callback, 
-          handler_type handler)
+          handler_type handler,
+          bool async)
 {
+  if( async ) {
+    io_service_.post(
+      bind(&agent::async_post, this, url, get_parameter, post_parameter, 
+           chunked_callback, handler, false));
+    return;
+  }
   connection_.reset(new connection(io_service_));
 
   sys::error_code http_err;
@@ -247,7 +273,10 @@ void agent::handle_read_headers(const boost::system::error_code& err)
     connection_->io_buffer().consume(
       beg - asio::buffers_begin(connection_->io_buffer().data()));
     // Handle redirection - i.e. 301, 302, 
-    if(response_.status_code >= 300 && response_.status_code < 400){
+    if(request_.method == "GET" && 
+       response_.status_code >= 300 && 
+       response_.status_code < 400)
+    {
       redirect();
     } else {
       notify_header(err);
@@ -284,15 +313,14 @@ void agent::redirect()
   auto iter = http::find_header(response_.headers, "Location"); 
   auto beg(iter->value.begin()), end(iter->value.end());
 
-  if(request_.method == "POST") 
-    goto OPERATION_CANCEL;
   if(AGENT_MAXIMUM_REDIRECT_COUNT <= redirect_count_)
     goto OPERATION_CANCEL;
   if(iter == response_.headers.end())
     goto BAD_MESSAGE;
   
   redirect_count_++;
-  get(iter->value, chunked_callback_, handler_);
+  async_get(iter->value, chunked_callback_, 
+            std::forward<handler_type>(handler_), false);
   
   return;
 

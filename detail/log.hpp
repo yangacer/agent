@@ -5,7 +5,7 @@
 #include <iostream>
 
 #define AGENT_TIMED_LOG(Name, StreamableData) \
-  std::cerr << timestamp() << " " Name << "\n"; \
+  std::cerr << "---- " << timestamp() << " " Name << "\n"; \
   std::cerr << StreamableData; \
   std::cerr << "---- end of " Name " ----\n"; 
 

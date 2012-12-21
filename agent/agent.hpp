@@ -27,19 +27,21 @@ public:
   ~agent();
 
   // TODO Collect similar code in following 3 functions
-  void get(std::string const &url, bool chunked_callback,
-           handler_type handler);
+  void async_get(std::string const &url, bool chunked_callback,
+           handler_type handler, bool async = true);
 
-  void get(std::string const &url, 
+  void async_get_parameter(std::string const &url, 
            http::entity::query_map_t const &parameter,
            bool chunked_callback, 
-           handler_type handler);
+           handler_type handler,
+           bool async = true);
 
-  void post(std::string const &url, 
+  void async_post(std::string const &url, 
             http::entity::query_map_t const &get_parameter,
             http::entity::query_map_t const &post_parameter,
             bool chunked_callback, 
-            handler_type handler);
+            handler_type handler,
+            bool async = true);
 
   // TODO void cancel();
   http::request &request();
