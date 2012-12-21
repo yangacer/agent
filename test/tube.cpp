@@ -15,7 +15,6 @@ template<typename Iter>
 std::string get_value(
   Iter& beg, Iter& end,
   std::string &field, std::string const &delim)
-  // {{{
 { 
   Iter i;
   std::string rt;
@@ -24,38 +23,33 @@ std::string get_value(
     field.assign(beg, i);
     beg = i + 1;
     i = std::search(beg, end, delim.begin(), delim.end());
-    if( i != end ) {
-      rt.assign(beg, i);
-      beg = i + delim.size();
-    }
+    rt.assign(beg, i);
+    beg = (i != end) ? i + delim.size() : end ;
   }
   return rt;
 }
-// }}}
 
 struct tube_agent
 {
-  tube_agent(asio::io_service &ios)
-  : agent_(ios), received_(0), 
+  tube_agent(asio::io_service &ios, int max_retry)
+    : agent_(ios), received_(0), total_(0),
+  max_retry_(max_retry), retry_count_(0),
   previous_delay_(5), blocked_timer_(ios)
   {}
 
   void get(std::string const &url,
-             std::string const &itag)
-  // {{{
+           std::string const &itag)
   {
     itag_ = itag;
     page_url_ = url;
-    agent_.async_get(url, false, 
-      bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
+    agent_.async_get(
+      url, false, bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
-  // }}}
 
 protected:
   void handle_page(
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
-    // {{{
   {
     using std::cerr;
     using std::string;
@@ -63,28 +57,23 @@ protected:
     if(!ec) {
 
     } else if(eof == ec) {
-     if( 200 == resp.status_code ) {
-        //auto header = http::find_header(resp.headers, "Content-Length");
-        //if(header == resp.headers.end()) {
-        //  delayed_get();
-        //} else {
-          string url, signature;
+      if( 200 == resp.status_code ) {
+        string url, signature;
 
-          if(get_link(buffers, itag_, url, signature)) {
-            url.append("%26signature%3D").append(signature);
-            auto beg(url.begin()), end(url.end());
-            video_url_.clear();
-            http::parser::parse_url_esc_string(beg, end, video_url_);
-            agent_.async_get(video_url_, true, 
-                       bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
+        if(get_link(buffers, itag_, url, signature)) {
+          url.append("%26signature%3D").append(signature);
+          auto beg(url.begin()), end(url.end());
+          video_url_.clear();
+          http::parser::parse_url_esc_string(beg, end, video_url_);
+          agent_.async_get(video_url_, true, 
+                           bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
 
-          } else {
-            auto beg(asio::buffers_begin(buffers)), 
-              end(asio::buffers_end(buffers));
-            std::cerr.write(&*beg, end - beg);
-            std::cerr << "\n---- no matched itag\n";
-          }
-        //}
+        } else {
+          auto beg(asio::buffers_begin(buffers)), 
+            end(asio::buffers_end(buffers));
+          std::cerr.write(&*beg, end - beg);
+          std::cerr << "\n---- no matched itag\n";
+        }
       } else if(403 == resp.status_code) {
         delayed_get();
         std::cerr << "\n---- http error code (" << resp.status_code << "\n";
@@ -93,11 +82,9 @@ protected:
       std::cerr << "error: " << ec.message() << "\n";
     }
   }
-  // }}}
 
   bool get_link(asio::const_buffers_1 &buffers, std::string const &target_itag, 
                 std::string &url, std::string &signature)
-  // {{{
   {
     using namespace std;
 
@@ -132,19 +119,18 @@ protected:
               ++required;
             }
           }
-          if(itag == target_itag) break;
+          if(itag == target_itag && required == 3) return true;
+          if(group_end == end) break;
           beg = group_end + 1;
         }
       }
     }
-    return required == 3;
+    return false;
   }
-  // }}}
 
   void handle_video(
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
-  // {{{
   {
     if(!ec) {
       if(resp.status_code == 200) {
@@ -167,29 +153,36 @@ protected:
         std::cerr << resp.status_code << "\n";
       }
     } else if(eof == ec) {
-      std::cerr << "---- eof ----\n" <<
-        "received: " << received_ << "\n";
+      if(!received_) 
+        delayed_get();
     } else {
       std::cerr << "error: " << ec.message() << "\n";
     }
   }
-  // }}}
 
   void delayed_get() 
   {
-    std::cerr << 
-      "Oops, we are blocked! "
-      "This procedure will take place again after " << 
-      previous_delay_ << " seconds.\n";  
-    blocked_timer_.expires_from_now(boost::posix_time::seconds(previous_delay_));
-    blocked_timer_.async_wait(bind(&tube_agent::get, this, page_url_, itag_));
-    previous_delay_ <<= 1;
+    if(retry_count_ < max_retry_) {
+      std::cerr << 
+        "Oops, we are blocked! "
+        "This procedure will take place again after " << 
+        previous_delay_ << " seconds.\n";  
+      blocked_timer_.expires_from_now(boost::posix_time::seconds(previous_delay_));
+      blocked_timer_.async_wait(bind(&tube_agent::get, this, page_url_, itag_));
+      previous_delay_ <<= 1;
+      retry_count_++;
+    } else {
+      std::cerr << "Exceed retry limit. Abort job.\n";
+      return;
+    }
   }
 private:
   agent agent_;
   std::string itag_, page_url_, video_url_;
   size_t received_;
   size_t total_;
+  int const max_retry_;
+  int retry_count_;
   int previous_delay_;
   asio::deadline_timer blocked_timer_;
 };
@@ -197,7 +190,7 @@ private:
 int main(int argc, char** argv)
 {
   asio::io_service ios;
-  tube_agent ta(ios);
+  tube_agent ta(ios, 10);
   ta.get("http://www.youtube.com/watch?v=88m2XdyGXRY", "34");
 
   ios.run();

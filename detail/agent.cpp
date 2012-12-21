@@ -67,6 +67,7 @@ void agent::async_get(std::string const &url, bool chunked_callback,
   auto beg(url.begin()), end(url.end());
 
   if(!http::parser::parse_url(beg, end, url_)) {
+    std::cerr << url << "\n";
     http_err.assign(sys::errc::invalid_argument, sys::system_category());
     notify_error(http_err);
     return;
@@ -263,6 +264,8 @@ void agent::handle_read_headers(const boost::system::error_code& err)
          end(asio::buffers_end(connection_->io_buffer().data()));
 
     if(!http::parser::parse_header_list(beg, end, response_.headers)) {
+      std::cerr << "parse header list failed\nOrigin data:\n";
+      std::cerr.write(&*beg, end - beg);
       sys::error_code http_err(sys::errc::bad_message, sys::system_category());
       notify_error(http_err);
       return;
