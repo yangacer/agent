@@ -30,12 +30,13 @@ public:
   void async_get(std::string const &url, bool chunked_callback,
            handler_type handler, bool async = true);
 
-  void async_get_parameter(std::string const &url, 
+  void async_get(std::string const &url, 
            http::entity::query_map_t const &parameter,
            bool chunked_callback, 
            handler_type handler,
            bool async = true);
 
+  // TODO no get param verison
   void async_post(std::string const &url, 
             http::entity::query_map_t const &get_parameter,
             http::entity::query_map_t const &post_parameter,
@@ -43,10 +44,13 @@ public:
             handler_type handler,
             bool async = true);
 
-  // TODO void cancel();
+  // TODO void cancel(bool async = true);
+  // TODO int speed() const;
   http::request &request();
   boost::asio::io_service& io_service();
 protected:
+  // TODO bool canceled() const;
+  http::entity::url init(boost::system::error_code &err, std::string const &method, std::string const &url);
   void start_op(std::string const &server, std::string const &port, 
                 handler_type handler);
   void handle_connect(boost::system::error_code const &err);
