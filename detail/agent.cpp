@@ -14,7 +14,7 @@
 #include "connection.hpp"
 #include "log.hpp"
 
-#define AGENT_STR "Opera/9.80 (Windows NT 6.1; U; en) Presto/2.9.168 Version/11.52"
+#define AGENT_STR "OokonHTTPAgent Version/0.1.0"
 
 std::string 
 determine_service(http::entity::url const & url)
@@ -54,80 +54,62 @@ void agent::async_get(std::string const &url, bool chunked_callback,
                 handler_type handler, bool async)
 {
   if( async ) {
+    typedef void(agent::*mem_fn_type)(
+      std::string const &, bool, handler_type, bool);
+
     io_service_.post(
-      boost::bind(&agent::async_get, this, url, chunked_callback, 
+      boost::bind((mem_fn_type)&agent::async_get, this, url, chunked_callback, 
                   handler, false));
     return;
   }
-  connection_.reset(new connection(io_service_));
-
   sys::error_code http_err;
-  http::entity::url url_;
+  http::entity::url url_parsed = init(http_err, "GET", url) ;
   std::ostream os(&connection_->io_buffer());
-  auto beg(url.begin()), end(url.end());
-
-  if(!http::parser::parse_url(beg, end, url_)) {
-    std::cerr << url << "\n";
-    http_err.assign(sys::errc::invalid_argument, sys::system_category());
+  
+  if(http_err) {
     notify_error(http_err);
     return;
   }
-  request_.method = "GET";
-  request_.http_version_major = 1;
-  request_.http_version_minor = 1;
-  auto header = http::get_header(request_.headers, "Host");
-  if(header->value.empty()) header->value = url_.host;
-  setup_default_headers(request_.headers);
-  request_.query = url_.query;
-
-  redirect_count_ = 0;
+  request_.query = url_parsed.query;
   chunked_callback_ = chunked_callback;
   os.flush();
   os << request_;
-  start_op(url_.host, determine_service(url_), handler);
+  start_op(url_parsed.host, determine_service(url_parsed), handler);
 }
 
-void agent::async_get_parameter(std::string const &url, 
+void agent::async_get(std::string const &url, 
                   http::entity::query_map_t const &parameter,
                   bool chunked_callback, 
                   handler_type handler,
                   bool async)
 {
   if( async ) {
+    typedef void(agent::*mem_fn_type)(
+      std::string const &, http::entity::query_map_t const&,
+      bool, handler_type, bool);
+
     io_service_.post(
-      bind(&agent::async_get_parameter, this, 
+      bind((mem_fn_type)&agent::async_get, this, 
            url,
            parameter, 
            chunked_callback, 
            std::forward<handler_type>(handler), false));
     return;
   }
-  connection_.reset(new connection(io_service_));
-
   sys::error_code http_err;
-  http::entity::url url_;
+  http::entity::url url_parsed = init(http_err, "GET", url);
   std::ostream os(&connection_->io_buffer());
-  auto beg(url.begin()), end(url.end());
-
-  if(!http::parser::parse_url(beg, end, url_)) {
-    http_err.assign(sys::errc::invalid_argument, sys::system_category());
+  if(http_err) {
     notify_error(http_err);
     return;
   }
-  request_.method = "GET";
-  request_.http_version_major = 1;
-  request_.http_version_minor = 1;
-  auto header = http::get_header(request_.headers, "Host");
-  if(header->value.empty()) header->value = url_.host;
-  setup_default_headers(request_.headers);
-  request_.query.path = url_.query.path;
+  request_.query.path = url_parsed.query.path;
   request_.query.query_map = parameter;
-
-  redirect_count_ = 0;
+  
   chunked_callback_ = chunked_callback;
   os.flush();
   os << request_;
-  start_op(url_.host, determine_service(url_), handler);
+  start_op(url_parsed.host, determine_service(url_parsed), handler);
 }
 
 void agent::async_post(std::string const &url,
@@ -143,40 +125,30 @@ void agent::async_post(std::string const &url,
            chunked_callback, handler, false));
     return;
   }
-  connection_.reset(new connection(io_service_));
-
   sys::error_code http_err;
-  http::entity::url url_;
+  http::entity::url url_parsed = init(http_err, "POST", url);
   std::ostream os(&connection_->io_buffer());
   std::stringstream body;
-  auto beg(url.begin()), end(url.end());
   http::generator::ostream_iterator body_begin(body);
 
-  if(!http::parser::parse_url(beg, end, url_)) {
+  if(http_err) {
     http_err.assign(sys::errc::invalid_argument, sys::system_category());
     notify_error(http_err);
     return;
   }
-  request_.method = "POST";
-  request_.http_version_major = 1;
-  request_.http_version_minor = 1;
-  auto header = http::get_header(request_.headers, "Host");
-  if(header->value.empty()) header->value = url_.host;
-  header = http::get_header(request_.headers, "Content-Type");
-  if(header->value.empty()) header->value = 
+  auto content_type = http::get_header(request_.headers, "Content-Type");
+  if(content_type->value.empty()) content_type->value = 
     "application/x-www-form-urlencoded";
-  setup_default_headers(request_.headers);
-  request_.query.path = url_.query.path;
+  request_.query.path = url_parsed.query.path;
   request_.query.query_map = get_parameter;
   http::generator::generate_query_map(body_begin, post_parameter);
-  header = http::get_header(request_.headers, "Content-Length");
-  header->value_as(body.str().size());
+  auto content_length = http::get_header(request_.headers, "Content-Length");
+  content_length->value_as(body.str().size());
 
-  redirect_count_ = 0;
   chunked_callback_ = chunked_callback;
   os.flush();
   os << request_ << body.str();
-  start_op(url_.host, determine_service(url_), handler);
+  start_op(url_parsed.host, determine_service(url_parsed), handler);
 }
 
 http::request &agent::request()
@@ -184,6 +156,30 @@ http::request &agent::request()
 
 asio::io_service &agent::io_service()
 { return io_service_; }
+
+http::entity::url
+agent::init(sys::error_code &err, std::string const &method, std::string const &url) 
+{
+  sys::error_code http_err;
+  http::entity::url url_parsed;
+  auto host = http::get_header(request_.headers, "Host");
+  auto beg(url.begin()), end(url.end());
+
+  if(!http::parser::parse_url(beg, end, url_parsed)) {
+    err.assign(sys::errc::invalid_argument, sys::system_category());
+    return url_parsed;
+  }
+  request_.method = method;
+  request_.http_version_major = 1;
+  request_.http_version_minor = 1;
+  if(host->value.empty()) host->value = url_parsed.host;
+  setup_default_headers(request_.headers);
+
+  redirect_count_ = 0;
+  err.assign(0, sys::system_category());
+  connection_.reset(new connection(io_service_));
+  return url_parsed;
+}
 
 void agent::start_op(
   std::string const &server, std::string const &port, handler_type handler)
@@ -193,8 +189,7 @@ void agent::start_op(
   handler_ = handler;
   connection_->connect(
     server, port,
-    bind(
-      &agent::handle_connect, this, asio_ph::error));
+    bind(&agent::handle_connect, this, asio_ph::error));
 }
 
 void agent::handle_connect(boost::system::error_code const &err)
