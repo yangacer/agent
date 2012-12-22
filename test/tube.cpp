@@ -8,7 +8,6 @@
 
 namespace asio = boost::asio;
 namespace sys = boost::system;
-using boost::bind;
 using asio::error::eof;
 
 template<typename Iter>
@@ -47,7 +46,7 @@ struct tube_agent
     itag_ = itag;
     page_url_ = url;
     agent_.async_get(url, false, 
-      bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
+      boost::bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
   // }}}
 
@@ -76,7 +75,7 @@ protected:
             video_url_.clear();
             http::parser::parse_url_esc_string(beg, end, video_url_);
             agent_.async_get(video_url_, true, 
-                       bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
+                       boost::bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
 
           } else {
             auto beg(asio::buffers_begin(buffers)), 
@@ -182,7 +181,7 @@ protected:
       "This procedure will take place again after " << 
       previous_delay_ << " seconds.\n";  
     blocked_timer_.expires_from_now(boost::posix_time::seconds(previous_delay_));
-    blocked_timer_.async_wait(bind(&tube_agent::get, this, page_url_, itag_));
+    blocked_timer_.async_wait(boost::bind(&tube_agent::get, this, page_url_, itag_));
     previous_delay_ <<= 1;
   }
 private:

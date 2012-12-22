@@ -94,7 +94,7 @@ void agent::async_get_parameter(std::string const &url,
 {
   if( async ) {
     io_service_.post(
-      bind(&agent::async_get_parameter, this, 
+      boost::bind(&agent::async_get_parameter, this, 
            url,
            parameter, 
            chunked_callback, 
@@ -138,7 +138,7 @@ void agent::async_post(std::string const &url,
 {
   if( async ) {
     io_service_.post(
-      bind(&agent::async_post, this, url, get_parameter, post_parameter, 
+      boost::bind(&agent::async_post, this, url, get_parameter, post_parameter, 
            chunked_callback, handler, false));
     return;
   }

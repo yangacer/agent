@@ -1,6 +1,10 @@
 #include "log.hpp"
 #include <cstdlib>
 
+#ifdef _MSC_VER
+#define gmtime_r(x,y) gmtime_s(y,x)
+#endif
+
 std::string timestamp(time_t time)
 {
   std::string fmt("[yyyy-mm-dd hh:MM:SS] ");

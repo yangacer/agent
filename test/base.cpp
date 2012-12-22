@@ -58,6 +58,7 @@ int main()
 {
   using http::entity::field;
   using http::entity::query_map_t;
+  using http::entity::query_pair_t;
 
   boost::asio::io_service ios;
   agent getter(ios), poster(ios);
@@ -67,15 +68,15 @@ int main()
 
   // do 'get' request
   // setup parameters
-  get_param.insert({"v","8Q2P4LjuVA8"});
+  get_param.insert(query_pair_t("v","8Q2P4LjuVA8"));
   getter.async_get_parameter( 
     "http://www.youtube.com/watch", get_param, true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do 'post' request
   get_param.clear();
-  get_param.insert({"dir","aceryang"});
-  post_param.insert({"encoded", "\r\n1234 6"});
+  get_param.insert(query_pair_t("dir","aceryang"));
+  post_param.insert(query_pair_t("encoded", "\r\n1234 6"));
   poster.async_post( "http://www.posttestserver.com/", get_param, post_param, false,
               boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
   ios.run();
