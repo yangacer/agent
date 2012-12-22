@@ -6,6 +6,6 @@ add_library (
   parser.cpp generator.cpp entity.cpp
   connection.cpp
   agent.cpp)
-target_link_libraries( agent ${Boost_LIBRARIES} pthread)
+target_link_libraries( agent ${Boost_LIBRARIES} libeay32mt ssleay32mt Crypt32)
 
 

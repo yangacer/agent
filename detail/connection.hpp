@@ -8,6 +8,7 @@
 #include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/ssl.hpp>
 #include "agent/connection_fwd.hpp"
 
 class connection 
@@ -43,6 +44,14 @@ public:
   bool is_open() const;
   void close();
 protected:
+  void connect_secure(
+    const boost::system::error_code& err,
+    connect_handler_type handler);
+
+  void handle_handshake(
+    const boost::system::error_code& err,
+    connect_handler_type handler);
+
   void handle_resolve(
     const boost::system::error_code& err, 
     resolver::iterator endpoint,
@@ -55,7 +64,10 @@ private:
   boost::asio::io_service &io_service_;
   resolver resolver_;
   socket_type socket_;
+  boost::asio::ssl::context ctx_;
+  boost::asio::ssl::stream<socket_type&> sockets_;
   streambuf_type iobuf_;
+  bool is_secure_;
 };
 // TODO 1. This header can be hide from users
 

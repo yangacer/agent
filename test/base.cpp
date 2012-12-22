@@ -61,7 +61,7 @@ int main()
   using http::entity::query_pair_t;
 
   boost::asio::io_service ios;
-  agent getter(ios), poster(ios);
+  agent getter(ios), getter_s(ios), poster(ios);
   get_handler get_hdlr;
   post_handler post_hdlr;
   query_map_t get_param, post_param;
@@ -71,6 +71,12 @@ int main()
   get_param.insert(query_pair_t("v","8Q2P4LjuVA8"));
   getter.async_get_parameter( 
     "http://www.youtube.com/watch", get_param, true,
+    boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
+  
+  //do https 'get' request
+  get_param.clear();
+  getter_s.async_get_parameter( 
+    "https://www.google.com.tw/", get_param, true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do 'post' request
