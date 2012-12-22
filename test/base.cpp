@@ -69,7 +69,7 @@ int main()
   // do 'get' request
   // setup parameters
   get_param.insert(query_pair_t("v","8Q2P4LjuVA8"));
-  getter.async_get_parameter( 
+  getter.async_get( 
     "http://www.youtube.com/watch", get_param, true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
