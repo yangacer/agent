@@ -6,6 +6,13 @@ add_library (
   parser.cpp generator.cpp entity.cpp
   connection.cpp
   agent.cpp)
-target_link_libraries( agent ${Boost_LIBRARIES} libeay32mt ssleay32mt Crypt32)
+
+if(${CMAKE_CXX_COMPILER} MATCHES "Visual Studio")
+  set ( LIBS libeay32mt ssleay32mt Crypt32)
+else()
+  set ( LIBS pthread crypto ssl)
+endif()
+
+target_link_libraries( agent ${Boost_LIBRARIES} ${LIBS} ) 
 
 

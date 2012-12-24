@@ -72,6 +72,8 @@ private:
   int             redirect_count_;
   bool            chunked_callback_;
   handler_type    handler_;
+  boost::int64_t  expected_size_;
+  boost::int64_t  current_size_;
 };
 // TODO 
 // 3. this agent is a http client specific; do we need to make it
