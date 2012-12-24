@@ -111,17 +111,11 @@ connection::io_buffer()
 connection::socket_type &
 connection::socket()
 {
-  if(is_secure_){
-    return sockets_.next_layer();
-  }
   return socket_;
 }
 
 bool connection::is_open() const
 {
-  if(is_secure_){
-    return sockets_.next_layer().is_open();
-  }
   return socket_.is_open();
 }
 
@@ -139,7 +133,7 @@ void connection::handle_resolve(
 {
   if (!err && endpoint != tcp::resolver::iterator()) {
     if(is_secure_){
-      asio::async_connect(sockets_.next_layer(), endpoint, boost::bind(&connection::connect_secure, shared_from_this(), asio_ph::error, handler));
+      asio::async_connect(socket_, endpoint, boost::bind(&connection::connect_secure, shared_from_this(), asio_ph::error, handler));
       return;
     }
     asio::async_connect(socket_, endpoint, boost::bind(handler, asio_ph::error));
