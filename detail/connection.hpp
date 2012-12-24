@@ -68,6 +68,7 @@ private:
   boost::asio::ssl::stream<socket_type&> sockets_;
   streambuf_type iobuf_;
   bool is_secure_;
+  const long short_read_error;
 };
 // TODO 1. This header can be hide from users
 
