@@ -75,7 +75,7 @@ int main()
   
   //do https 'get' request
   get_param.clear();
-  getter_s.async_get_parameter( 
+  getter_s.async_get( 
     "https://www.google.com.tw/", get_param, true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   

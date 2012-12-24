@@ -39,7 +39,6 @@ setup_default_headers(std::vector<http::entity::field> &headers)
 namespace asio = boost::asio;
 namespace asio_ph = boost::asio::placeholders;
 namespace sys = boost::system;
-using boost::bind;
 
 agent::agent(asio::io_service &ios)
 : io_service_(ios), 
@@ -89,7 +88,7 @@ void agent::async_get(std::string const &url,
       bool, handler_type, bool);
 
     io_service_.post(
-      bind((mem_fn_type)&agent::async_get, this, 
+      boost::bind((mem_fn_type)&agent::async_get, this, 
            url,
            parameter, 
            chunked_callback, 
@@ -189,7 +188,7 @@ void agent::start_op(
   handler_ = handler;
   connection_->connect(
     server, port,
-    bind(&agent::handle_connect, this, asio_ph::error));
+    boost::bind(&agent::handle_connect, this, asio_ph::error));
 }
 
 void agent::handle_connect(boost::system::error_code const &err)
@@ -199,7 +198,7 @@ void agent::handle_connect(boost::system::error_code const &err)
     AGENT_TIMED_LOG("request headers", request_);
 #endif
     connection_->write(
-      bind(
+      boost::bind(
         &agent::handle_write_request, this,
         asio_ph::error,
         asio_ph::bytes_transferred
@@ -217,7 +216,7 @@ void agent::handle_write_request(
   if (!err ){
     connection_->io_buffer().consume(len);
     connection_->read_until(
-      "\r\n", bind(
+      "\r\n", boost::bind(
         &agent::handle_read_status_line, this,
         asio_ph::error));
   } else {
@@ -243,7 +242,7 @@ void agent::handle_read_status_line(const boost::system::error_code& err)
     // Read the response headers, which are terminated by a blank line.
     connection_->read_until(
       "\r\n\r\n", 
-      bind(
+      boost::bind(
         &agent::handle_read_headers, this,
         asio_ph::error));
   } else {
@@ -277,6 +276,13 @@ void agent::handle_read_headers(const boost::system::error_code& err)
     {
       redirect();
     } else {
+      auto content_length = http::find_header(response_.headers, "Content-Length");
+      if( content_length != response_.headers.end()) {
+        expected_size_ = content_length->value_as<boost::int64_t>();
+      } else {
+        expected_size_ = 0;
+      }
+      current_size_ = connection_->io_buffer().size();
       notify_header(err);
       read_body();
     }
@@ -288,17 +294,28 @@ void agent::handle_read_headers(const boost::system::error_code& err)
 void agent::read_body() 
 {
   connection_->read_some(
-    1, bind(&agent::handle_read_body, this, _1, _2));
+    1, boost::bind(&agent::handle_read_body, this, _1, _2));
 }
 
 void agent::handle_read_body(
   boost::system::error_code const &err, boost::uint32_t length)
 {
   if (!err ) {
+    current_size_ += length;
     if( chunked_callback_) 
       notify_chunk(err);
     read_body();
   } else {
+    /* TODO
+    sys::error_code http_err = err;
+    if( expected_size_ ) {
+      http_err = expected_size_ == current_size_ ?
+        asio::error::eof : err;
+    } else {
+      http_err = last_zero_length_ && !length ?
+        asio::error::eof : err;
+    }
+    */
     notify_error(err);
   }
 }
