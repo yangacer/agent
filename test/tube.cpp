@@ -107,6 +107,9 @@ protected:
           required = 0;
           for(int i=0;i<6 && required < 3;++i) {
             value = get_value(beg, group_end, field, delim);
+            if(value.empty()) {
+              cerr << "parsing error: " << field << "\n";
+            }
             if( field == "itag") {
               itag = value;
               ++required;
@@ -190,7 +193,7 @@ int main(int argc, char** argv)
 {
   asio::io_service ios;
   tube_agent ta(ios, 10);
-  ta.get("http://www.youtube.com/watch?v=88m2XdyGXRY", "34");
+  ta.get("http://www.youtube.com/watch?v=NPoHPNeU9fc", "37");
 
   ios.run();
   return 0;
