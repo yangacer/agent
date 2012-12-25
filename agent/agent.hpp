@@ -26,7 +26,6 @@ public:
   agent(boost::asio::io_service &ios);
   ~agent();
 
-  // TODO Collect similar code in following 3 functions
   void async_get(std::string const &url, bool chunked_callback,
            handler_type handler, bool async = true);
 
@@ -44,12 +43,11 @@ public:
             handler_type handler,
             bool async = true);
 
-  // TODO void cancel(bool async = true);
+  void async_cancel(bool async = true);
   // TODO int speed() const;
   http::request &request();
   boost::asio::io_service& io_service();
 protected:
-  // TODO bool canceled() const;
   http::entity::url init(boost::system::error_code &err, std::string const &method, std::string const &url);
   void start_op(std::string const &server, std::string const &port, 
                 handler_type handler);
@@ -69,14 +67,14 @@ private:
   connection_ptr  connection_;
   http::response  response_;
   http::request   request_;
-  int             redirect_count_;
+  unsigned char   redirect_count_;
   bool            chunked_callback_;
   handler_type    handler_;
   boost::int64_t  expected_size_;
   boost::int64_t  current_size_;
+  bool            is_canceled_;
 };
 // TODO 
-// 3. this agent is a http client specific; do we need to make it
-//    more general (write a use case for this)
+// 4. upload handler (a.k.a write handler)
 
 #endif

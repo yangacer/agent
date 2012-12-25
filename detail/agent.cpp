@@ -64,7 +64,7 @@ void agent::async_get(std::string const &url, bool chunked_callback,
   sys::error_code http_err;
   http::entity::url url_parsed = init(http_err, "GET", url) ;
   std::ostream os(&connection_->io_buffer());
-  
+
   if(http_err) {
     notify_error(http_err);
     return;
@@ -150,6 +150,15 @@ void agent::async_post(std::string const &url,
   start_op(url_parsed.host, determine_service(url_parsed), handler);
 }
 
+void agent::async_cancel(bool async)
+{
+  if(async) {
+    io_service_.post(
+      boost::bind(&agent::async_cancel, this, false));
+  }
+  is_canceled_ = true;
+}
+
 http::request &agent::request()
 {  return request_;  }
 
@@ -184,6 +193,7 @@ void agent::start_op(
   std::string const &server, std::string const &port, handler_type handler)
 {
   // TODO global management of connection
+  is_canceled_ = false;
   response_.clear();
   handler_ = handler;
   connection_->connect(
@@ -293,8 +303,10 @@ void agent::handle_read_headers(const boost::system::error_code& err)
 
 void agent::read_body() 
 {
-  connection_->read_some(
-    1, boost::bind(&agent::handle_read_body, this, _1, _2));
+  if(!is_canceled_) {
+    connection_->read_some(
+      1, boost::bind(&agent::handle_read_body, this, _1, _2));
+  }
 }
 
 void agent::handle_read_body(
@@ -306,16 +318,6 @@ void agent::handle_read_body(
       notify_chunk(err);
     read_body();
   } else {
-    /* TODO
-    sys::error_code http_err = err;
-    if( expected_size_ ) {
-      http_err = expected_size_ == current_size_ ?
-        asio::error::eof : err;
-    } else {
-      http_err = last_zero_length_ && !length ?
-        asio::error::eof : err;
-    }
-    */
     notify_error(err);
   }
 }

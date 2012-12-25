@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cassert>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include "agent/agent.hpp"
@@ -16,6 +17,37 @@ void write_buffers_to_stdout(boost::asio::const_buffers_1 buffers)
     ++i;
   }
 }
+
+struct cancel_handler
+{
+  cancel_handler(boost::asio::io_service &ios)
+    : agent_(ios), issue_canceled(false)
+  {}
+
+  void get(std::string const& url) 
+  {
+    agent_.async_get(
+      url, false, 
+      boost::bind(&cancel_handler::handle_response, this, _1,_2,_3,_4));  
+  }
+
+  void handle_response(
+    boost::system::error_code const &ec,
+    http::request const &req,
+    http::response const &resp,
+    boost::asio::const_buffers_1 buffers)
+  {
+    if(!issue_canceled) 
+      issue_canceled = true;
+    else
+      assert(false && "cancel failed");
+
+    agent_.async_cancel();
+  }
+
+  bool issue_canceled;
+  agent agent_;
+};
 
 struct get_handler 
 {
@@ -64,6 +96,7 @@ int main()
   agent getter(ios), getter_s(ios), poster(ios);
   get_handler get_hdlr;
   post_handler post_hdlr;
+  cancel_handler cancel_hdlr(ios);
   query_map_t get_param, post_param;
 
   // do 'get' request
@@ -85,6 +118,10 @@ int main()
   post_param.insert(query_pair_t("encoded", "\r\n1234 6"));
   poster.async_post( "http://www.posttestserver.com/", get_param, post_param, false,
               boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
+
+  // dispatch cancel_handler
+  cancel_hdlr.get("http://www.boost.org");
+  
   ios.run();
   return 0;
 }
