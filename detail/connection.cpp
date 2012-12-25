@@ -14,7 +14,8 @@ namespace sys = boost::system;
 
 connection::connection(boost::asio::io_service &io_service)
   :  io_service_(io_service), resolver_(io_service), socket_(io_service),
-     ctx_(boost::asio::ssl::context::tlsv1_client), sockets_(socket_, ctx_),is_secure_(false)
+     ctx_(boost::asio::ssl::context::tlsv1_client), sockets_(socket_, ctx_),
+     is_secure_(false),short_read_error(335544539)
 {
   iobuf_.prepare(2048);
   sockets_.set_verify_mode(boost::asio::ssl::verify_none);
@@ -84,8 +85,14 @@ void connection::handle_read(
     boost::system::error_code const& err, boost::uint32_t length, 
     boost::uint32_t offset, io_handler_type handler)
 {
+  boost::system::error_code err_ = err;
+  bool is_short_read_error = 
+    (err.category() == boost::asio::error::ssl_category &&
+    err.value() == short_read_error);
+  if(err && is_short_read_error)
+    err_ = boost::asio::error::eof;
   io_service_.post(
-    boost::bind(handler, err, length));
+    boost::bind(handler, err_, length));
   // TODO add speed limitation
 }
 
@@ -111,17 +118,11 @@ connection::io_buffer()
 connection::socket_type &
 connection::socket()
 {
-  if(is_secure_){
-    return sockets_.next_layer();
-  }
   return socket_;
 }
 
 bool connection::is_open() const
 {
-  if(is_secure_){
-    return sockets_.next_layer().is_open();
-  }
   return socket_.is_open();
 }
 
@@ -139,7 +140,7 @@ void connection::handle_resolve(
 {
   if (!err && endpoint != tcp::resolver::iterator()) {
     if(is_secure_){
-      asio::async_connect(sockets_.next_layer(), endpoint, boost::bind(&connection::connect_secure, shared_from_this(), asio_ph::error, handler));
+      asio::async_connect(socket_, endpoint, boost::bind(&connection::connect_secure, shared_from_this(), asio_ph::error, handler));
       return;
     }
     asio::async_connect(socket_, endpoint, boost::bind(handler, asio_ph::error));
