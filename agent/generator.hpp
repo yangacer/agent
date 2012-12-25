@@ -84,7 +84,7 @@ struct request
   template<typename Iter, typename Struct> \
   bool generate_##Generator(Iter& out, Struct const &obj) \
   { \
-    static Generator<Iter> gen; \
+    Generator<Iter> gen; \
     return karma::generate(out, gen, obj); \
   }
 
