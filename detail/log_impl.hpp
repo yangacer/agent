@@ -14,7 +14,6 @@ class logger_impl
 {
 public:
   logger_impl();
-  void start_thread();
   void destroy();
   boost::asio::io_service& io_service();
   void use_file(std::string const &filename);

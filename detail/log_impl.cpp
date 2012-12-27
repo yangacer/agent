@@ -2,9 +2,6 @@
 #include <boost/bind.hpp>
 
 logger_impl::logger_impl()
-{}
-
-void logger_impl::start_thread()
 {
   if(!thread_) {
     boost::unique_lock<boost::mutex> lock(mutex_);
@@ -50,13 +47,6 @@ void logger_impl::use_file(std::string const &filename)
 
 void logger_impl::async_log(boost::shared_ptr<std::string> data)
 {
-  /*
-  std::cerr <<"async log : " << boost::this_thread::get_id() << "\n";
-  std::cerr << "wait 1 sec and do logging\n";
-  time_t now = time(NULL);
-  while( (time(NULL) - now) < 2);
-  std::cerr << "do log\n";
-  */
   if(!os_.get()) return;
   (*os_) << *data ;
   data.reset();

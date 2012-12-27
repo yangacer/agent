@@ -199,7 +199,6 @@ void agent::start_op(
   connection_->connect(
     server, port,
     boost::bind(&agent::handle_connect, this, asio_ph::error));
-  connection_->close();
 }
 
 void agent::handle_connect(boost::system::error_code const &err)

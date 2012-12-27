@@ -31,7 +31,6 @@ boost::mutex logger::mutex_;
 logger::logger()
 {
   impl_.reset(new logger_impl);
-  impl_->start_thread();
 }
 
 logger::~logger()

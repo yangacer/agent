@@ -9,6 +9,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include "agent/connection_fwd.hpp"
 
 class connection 
@@ -60,6 +61,8 @@ protected:
   void handle_read(
     boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
     io_handler_type handler);
+
+  void handle_timeout(boost::system::error_code const &err);
 private:
   boost::asio::io_service &io_service_;
   resolver resolver_;
@@ -69,6 +72,7 @@ private:
   streambuf_type iobuf_;
   bool is_secure_;
   const long ssl_short_read_error_;
+  boost::asio::deadline_timer deadline_;
 };
 // TODO 1. This header can be hide from users
 

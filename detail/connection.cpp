@@ -15,7 +15,8 @@ namespace sys = boost::system;
 connection::connection(boost::asio::io_service &io_service)
   :  io_service_(io_service), resolver_(io_service), socket_(io_service),
      ctx_(boost::asio::ssl::context::tlsv1_client), sockets_(socket_, ctx_),
-     is_secure_(false),ssl_short_read_error_(335544539)
+     is_secure_(false),ssl_short_read_error_(335544539),
+     deadline_(io_service)
 {
   iobuf_.prepare(2048);
   sockets_.set_verify_mode(boost::asio::ssl::verify_none);
@@ -138,10 +139,13 @@ void connection::handle_resolve(
 {
   if (!err && endpoint != tcp::resolver::iterator()) {
     if(is_secure_){
-      asio::async_connect(socket_, endpoint, boost::bind(&connection::connect_secure, shared_from_this(), asio_ph::error, handler));
-      return;
+      asio::async_connect(
+        socket_, endpoint, 
+        boost::bind(&connection::connect_secure, shared_from_this(), 
+                    asio_ph::error, handler));
+    }else {
+      asio::async_connect(socket_, endpoint, boost::bind(handler, asio_ph::error));
     }
-    asio::async_connect(socket_, endpoint, boost::bind(handler, asio_ph::error));
   } else {
     io_service_.post(boost::bind(handler,err));
   }
@@ -152,7 +156,10 @@ void connection::connect_secure(
   connect_handler_type handler)
 {
   if (!err) {
-    sockets_.async_handshake(asio::ssl::stream_base::client, boost::bind(&connection::handle_handshake, shared_from_this(), asio_ph::error, handler));
+    sockets_.async_handshake(
+      asio::ssl::stream_base::client, 
+      boost::bind(&connection::handle_handshake, 
+                  shared_from_this(), asio_ph::error, handler));
   } else {
     io_service_.post(boost::bind(handler,err));
   }
@@ -163,5 +170,9 @@ void connection::handle_handshake(
   connect_handler_type handler)
 {
     io_service_.post(boost::bind(handler,err));
+}
+
+void connection::handle_timeout(boost::system::error_code const &err)
+{
 }
 
