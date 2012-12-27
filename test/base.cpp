@@ -2,7 +2,9 @@
 #include <cassert>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
+#include <boost/thread.hpp>
 #include "agent/agent.hpp"
+#include "agent/log.hpp"
 
 void write_buffers_to_stdout(boost::asio::const_buffers_1 buffers)
 {
@@ -99,21 +101,19 @@ int main()
   cancel_handler cancel_hdlr(ios);
   query_map_t get_param, post_param;
 
+  logger::instance().use_file("base.log");
   // do 'get' request
   // setup parameters
-  get_param.insert(query_pair_t("v","8Q2P4LjuVA8"));
   getter.async_get( 
-    "http://www.youtube.com/watch", get_param, true,
+    "http://www.youtube.com/watch?v=8Q2P4LjuVA8", true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   //do https 'get' request
-  get_param.clear();
   getter_s.async_get( 
-    "https://www.google.com.tw/", get_param, true,
+    "https://www.google.com.tw/", true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do 'post' request
-  get_param.clear();
   get_param.insert(query_pair_t("dir","aceryang"));
   post_param.insert(query_pair_t("encoded", "\r\n1234 6"));
   poster.async_post( "http://www.posttestserver.com/", get_param, post_param, false,
@@ -121,8 +121,13 @@ int main()
 
   // dispatch cancel_handler
   cancel_hdlr.get("http://www.boost.org");
+  std::cerr << boost::this_thread::get_id() << ": main thread\n";
   
   ios.run();
+  
+  std::cerr << "main io_service done\n";
+  //logger::instance().~logger();
+
   return 0;
 }
 
