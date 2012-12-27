@@ -35,7 +35,6 @@ public:
            handler_type handler,
            bool async = true);
 
-  // TODO no get param verison
   void async_post(std::string const &url, 
             http::entity::query_map_t const &get_parameter,
             http::entity::query_map_t const &post_parameter,

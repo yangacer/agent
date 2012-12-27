@@ -1,7 +1,7 @@
 include_directories ( ${PROJECT_SOURCE_DIR} )
 
 set ( AGENT_SRC 
-  log.cpp
+  log.cpp log_impl.cpp
   parser.cpp generator.cpp entity.cpp
   connection.cpp
   agent.cpp)

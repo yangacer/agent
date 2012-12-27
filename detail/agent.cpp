@@ -11,8 +11,8 @@
 #include "agent/parser.hpp"
 #include "agent/generator.hpp"
 #include "agent/pre_compile_options.hpp"
+#include "agent/log.hpp"
 #include "connection.hpp"
-#include "log.hpp"
 
 #define AGENT_STR "OokonHTTPAgent Version/0.1.0"
 
@@ -199,13 +199,14 @@ void agent::start_op(
   connection_->connect(
     server, port,
     boost::bind(&agent::handle_connect, this, asio_ph::error));
+  connection_->close();
 }
 
 void agent::handle_connect(boost::system::error_code const &err)
 {
   if(!err) {
 #ifdef AGENT_LOG_HEADERS
-    AGENT_TIMED_LOG("request headers", request_);
+    logger::instance().async_log("request headers", request_);
 #endif
     connection_->write(
       boost::bind(
@@ -275,7 +276,8 @@ void agent::handle_read_headers(const boost::system::error_code& err)
       return;
     }
 #ifdef AGENT_LOG_HEADERS
-    AGENT_TIMED_LOG("response headers", response_);
+    logger::instance().async_log("response headers", response_);
+    //AGENT_TIMED_LOG("response headers", response_);
 #endif
     connection_->io_buffer().consume(
       beg - asio::buffers_begin(connection_->io_buffer().data()));
