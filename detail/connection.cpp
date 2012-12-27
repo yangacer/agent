@@ -128,8 +128,6 @@ bool connection::is_open() const
 
 void connection::close()
 {
-  sockets_.shutdown();
-  socket_.shutdown(socket_type::shutdown_both);
   socket_.close();
 }
 

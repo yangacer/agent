@@ -44,7 +44,8 @@ struct tube_agent
     agent_.async_get(url, false, 
       boost::bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
-
+  ~tube_agent()
+  { std::cerr << "tube agent is freed\n"; }
 protected:
   void handle_page(
     sys::error_code const& ec, http::request const& req,
@@ -54,11 +55,9 @@ protected:
     using std::string;
 
     if(!ec) {
-
     } else if(eof == ec) {
       if( 200 == resp.status_code ) {
         string url, signature;
-
         if(get_link(buffers, itag_, url, signature)) {
           url.append("%26signature%3D").append(signature);
           auto beg(url.begin()), end(url.end());
@@ -77,6 +76,7 @@ protected:
         delayed_get();
         std::cerr << "\n---- http error code (" << resp.status_code << "\n";
       }
+      //std::cerr << resp.status_code << "\n";
     } else {
       std::cerr << "error: " << ec.message() << "\n";
     }
@@ -134,25 +134,19 @@ protected:
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
   {
-    if(!ec) {
-      if(resp.status_code == 200) {
-        size_t size = asio::buffer_size(buffers);
-        if( size == 0 ) {
-          auto h = http::find_header(resp.headers, "Content-Length");
-          std::cerr << "Content length: " << h->value << "\n\n\n";
-          total_ = h->value_as<size_t>();
-        } else {
-          received_ += size;
-          std::cout.setf(std::ios::fixed);
-          std::cout.precision(2);
-          std::cout.setf(std::ios::showpoint);
-          std::cout.width(12);
-          std::cout << "\033[F\033[J" << (100*received_)/(double)total_ << " %\n";
-        }
-      } else if( resp.status_code == 403 ) {
-        delayed_get();
+    if(!ec && resp.status_code == 200) {
+      size_t size = asio::buffer_size(buffers);
+      if( size == 0 ) {
+        auto h = http::find_header(resp.headers, "Content-Length");
+        std::cerr << "Content length: " << h->value << "\n\n\n";
+        total_ = h->value_as<size_t>();
       } else {
-        std::cerr << resp.status_code << "\n";
+        received_ += size;
+        std::cout.setf(std::ios::fixed);
+        std::cout.precision(2);
+        std::cout.setf(std::ios::showpoint);
+        std::cout.width(12);
+        std::cout << "\033[F\033[J" << (100*received_)/(double)total_ << " %\n";
       }
     } else if(eof == ec) {
       if(!received_) 
@@ -170,12 +164,24 @@ protected:
         "This procedure will take place again after " << 
         previous_delay_ << " seconds.\n";  
       blocked_timer_.expires_from_now(boost::posix_time::seconds(previous_delay_));
-      blocked_timer_.async_wait(bind(&tube_agent::get, this, page_url_, itag_));
+      blocked_timer_.async_wait(bind(&tube_agent::handle_delayed_get, this, _1));
       previous_delay_ <<= 1;
       retry_count_++;
     } else {
       std::cerr << "Exceed retry limit. Abort job.\n";
       return;
+    }
+  }
+  
+  void handle_delayed_get(boost::system::error_code const& ec)
+  {
+    if(!ec) {
+      std::cerr << "timer no error\n";
+      agent_.io_service().post(boost::bind(&tube_agent::get, this, page_url_, itag_));
+    } else if(ec == boost::asio::error::operation_aborted) {
+      std::cerr << "timer operation aborted\n";
+    } else {
+      std::cerr << ec.message() << "\n";
     }
   }
 private:
