@@ -15,7 +15,7 @@ namespace sys = boost::system;
 connection::connection(boost::asio::io_service &io_service)
   :  io_service_(io_service), resolver_(io_service), socket_(io_service),
      ctx_(boost::asio::ssl::context::tlsv1_client), sockets_(socket_, ctx_),
-     is_secure_(false),short_read_error(335544539)
+     is_secure_(false),ssl_short_read_error_(335544539)
 {
   iobuf_.prepare(2048);
   sockets_.set_verify_mode(boost::asio::ssl::verify_none);
@@ -86,10 +86,10 @@ void connection::handle_read(
     boost::uint32_t offset, io_handler_type handler)
 {
   boost::system::error_code err_ = err;
-  bool is_short_read_error = 
+  bool is_ssl_short_read_error_ = 
     (err.category() == boost::asio::error::ssl_category &&
-    err.value() == short_read_error);
-  if(err && is_short_read_error)
+    err.value() == ssl_short_read_error_);
+  if(err && is_ssl_short_read_error_)
     err_ = boost::asio::error::eof;
   io_service_.post(
     boost::bind(handler, err_, length));

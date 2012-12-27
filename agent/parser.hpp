@@ -96,7 +96,7 @@ struct request_first_line
   template<typename Iter, typename Struct> \
   bool parse_##Parser(Iter &beg, Iter &end, Struct &obj) \
   { \
-    static Parser<Iter> parser; \
+    Parser<Iter> parser; \
     return qi::phrase_parse( \
       beg, end, parser, qi::space, obj); \
   } 
@@ -110,7 +110,7 @@ GEN_PARSE_FN(url)
 template<typename Iter, typename Struct> 
 bool parse_url_esc_string(Iter &beg, Iter &end, Struct &obj) 
 { 
-  static url_esc_string<Iter> parser; 
+  url_esc_string<Iter> parser; 
   return qi::phrase_parse( 
     beg, end, parser((char const*)"/"), qi::space, obj); 
 } 
