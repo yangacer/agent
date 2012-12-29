@@ -7,12 +7,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 
-#define AGENT_TIMED_LOG(Name, StreamableData) \
-  std::cerr << "---- " << timestamp() << " " Name << "\n"; \
-  std::cerr << StreamableData; \
-  std::cerr << "---- end of " Name " ----\n"; 
-
-std::string timestamp(time_t time=0);
+std::string timestamp();
 
 class logger_impl;
 

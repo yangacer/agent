@@ -3,26 +3,13 @@
 #include <iostream>
 #include <boost/bind.hpp>
 #include <boost/ref.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
-#ifdef _MSC_VER
-#define gmtime_r(x,y) gmtime_s(y,x)
-#endif
-
-std::string timestamp(time_t time)
+std::string timestamp()
 {
-  std::string fmt("[yyyy-mm-dd hh:MM:SS] ");
-  std::string rt;
-  struct tm tm_;
- 
-  if(!time) time = std::time(NULL);
-
-  if(gmtime_r(&time, &tm_)){
-    rt.resize(fmt.size());
-    strftime(&rt[0], fmt.size(), "[%Y/%m/%d %H:%M:%S]", &tm_);
-    // erase \0
-    rt.resize(rt.size()-1); 
-  }
-  return rt;
+  namespace posix = boost::posix_time;
+  posix::ptime now = posix::microsec_clock::local_time();
+  return posix::to_iso_string(now);
 }
 
 std::unique_ptr<logger> logger::instance_ = nullptr;

@@ -70,7 +70,7 @@ protected:
     connect_handler_type handler);
 private:
   boost::asio::io_service &io_service_;
-  resolver resolver_;
+  resolver    resolver_;
   socket_type socket_;
   boost::asio::ssl::context ctx_;
   boost::asio::ssl::stream<socket_type&> sockets_;

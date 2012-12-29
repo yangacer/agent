@@ -17,10 +17,15 @@ namespace sys = boost::system;
 connection::connection(
   boost::asio::io_service &io_service, 
   timeout_config tconf)
-  :  io_service_(io_service), resolver_(io_service), socket_(io_service),
-     ctx_(boost::asio::ssl::context::tlsv1_client), sockets_(socket_, ctx_),
-     is_secure_(false),ssl_short_read_error_(335544539),
-     deadline_(io_service), timeout_config_(tconf)
+  : io_service_(io_service), 
+    resolver_(io_service), 
+    socket_(io_service),
+    ctx_(boost::asio::ssl::context::tlsv1_client), 
+    sockets_(socket_, ctx_),
+    is_secure_(false), 
+    ssl_short_read_error_(335544539),
+    deadline_(io_service), 
+    timeout_config_(tconf)
 {
   iobuf_.prepare(AGENT_CONNECTION_BUFFER_SIZE);
   sockets_.set_verify_mode(boost::asio::ssl::verify_none);

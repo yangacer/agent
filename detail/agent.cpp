@@ -205,7 +205,10 @@ void agent::handle_connect(boost::system::error_code const &err)
 {
   if(!err) {
 #ifdef AGENT_LOG_HEADERS
-    logger::instance().async_log("request headers", request_);
+    logger::instance().async_log(
+      "request headers", 
+      connection_->socket().remote_endpoint().address(),
+      request_);
 #endif
     connection_->write(
       boost::bind(
@@ -275,8 +278,10 @@ void agent::handle_read_headers(const boost::system::error_code& err)
       return;
     }
 #ifdef AGENT_LOG_HEADERS
-    logger::instance().async_log("response headers", response_);
-    //AGENT_TIMED_LOG("response headers", response_);
+    logger::instance().async_log(
+      "response headers", 
+      connection_->socket().remote_endpoint().address(),
+      response_);
 #endif
     connection_->io_buffer().consume(
       beg - asio::buffers_begin(connection_->io_buffer().data()));
