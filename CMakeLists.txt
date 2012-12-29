@@ -6,6 +6,7 @@ list (APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_mod)
 include (use_c++11)
 include (disable_useless_vc_warning)
 
+# TODO Enable dynamic linking in windows
 if(MSVC)
   include (force_static_msvc_runtime)
   set (Boost_USE_STATIC_LIBS ON)

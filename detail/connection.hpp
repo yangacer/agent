@@ -80,6 +80,5 @@ private:
   boost::asio::deadline_timer deadline_;
   timeout_config timeout_config_;
 };
-// TODO 1. This header can be hide from users
 
 #endif // header guard
