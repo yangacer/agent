@@ -13,4 +13,7 @@
 // Maximum redirection times per request
 #define AGENT_MAXIMUM_REDIRECT_COUNT 5
 
+// Connection buffer inititate size
+#define AGENT_CONNECTION_BUFFER_SIZE 2048
+
 #endif

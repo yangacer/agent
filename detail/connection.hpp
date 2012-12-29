@@ -11,6 +11,7 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include "agent/connection_fwd.hpp"
+#include "agent/timeout_config.hpp"
 
 class connection 
 : public boost::enable_shared_from_this<connection>,
@@ -29,7 +30,8 @@ public:
   typedef boost::asio::streambuf streambuf_type;
   typedef boost::asio::ip::tcp::socket socket_type;
 
-  connection(boost::asio::io_service &io_service);
+  connection(boost::asio::io_service &io_service, 
+             timeout_config tconf = timeout_config());
   ~connection();
   
   void connect(
@@ -42,6 +44,7 @@ public:
 
   streambuf_type &io_buffer();
   socket_type &socket();
+  timeout_config &timeout();
   bool is_open() const;
   void close();
 protected:
@@ -49,20 +52,22 @@ protected:
     const boost::system::error_code& err,
     connect_handler_type handler);
 
-  void handle_handshake(
-    const boost::system::error_code& err,
-    connect_handler_type handler);
-
   void handle_resolve(
     const boost::system::error_code& err, 
     resolver::iterator endpoint,
+    connect_handler_type handler);
+  
+  void handle_connect(
+    const boost::system::error_code& err, 
     connect_handler_type handler);
 
   void handle_read(
     boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
     io_handler_type handler);
 
-  void handle_timeout(boost::system::error_code const &err);
+  void handle_connect_timeout(
+    boost::system::error_code const &err,
+    connect_handler_type handler);
 private:
   boost::asio::io_service &io_service_;
   resolver resolver_;
@@ -73,6 +78,7 @@ private:
   bool is_secure_;
   const long ssl_short_read_error_;
   boost::asio::deadline_timer deadline_;
+  timeout_config timeout_config_;
 };
 // TODO 1. This header can be hide from users
 
