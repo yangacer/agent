@@ -229,7 +229,7 @@ void agent::handle_write_request(
   if (!err ){
     connection_->io_buffer().consume(len);
     connection_->read_until(
-      "\r\n", boost::bind(
+      "\r\n", 512, boost::bind(
         &agent::handle_read_status_line, this,
         asio_ph::error));
   } else {
@@ -254,7 +254,7 @@ void agent::handle_read_status_line(const boost::system::error_code& err)
       beg - asio::buffers_begin(connection_->io_buffer().data()));
     // Read the response headers, which are terminated by a blank line.
     connection_->read_until(
-      "\r\n\r\n", 
+      "\r\n\r\n", 4096,
       boost::bind(
         &agent::handle_read_headers, this,
         asio_ph::error));

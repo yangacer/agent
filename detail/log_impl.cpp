@@ -1,4 +1,5 @@
 #include "log_impl.hpp"
+#include <cassert>
 #include <boost/bind.hpp>
 
 logger_impl::logger_impl()

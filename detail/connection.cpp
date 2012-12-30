@@ -47,15 +47,14 @@ void connection::connect(
       asio_ph::error, asio_ph::iterator, handler));
 }
 
-#define CONNECTION_BIND_(Callback) \
+// GENERIC_BIND_: bind error_code and handler to be called 
+#define GENERIC_BIND_(Callback) \
   boost::bind(Callback, shared_from_this(), asio_ph::error, handler)
 
 #define SET_TIMER_(Seconds, Callback) \
   deadline_.expires_from_now( \
     boost::posix_time::seconds(Seconds)); \
-  deadline_.async_wait( CONNECTION_BIND_(Callback) );
-    //boost::bind( \
-    //Callback, shared_from_this(), asio_ph::error, handler));
+  deadline_.async_wait( GENERIC_BIND_(Callback) );
 
 void connection::handle_resolve(
   const boost::system::error_code& err, 
@@ -65,10 +64,10 @@ void connection::handle_resolve(
   if (!err && endpoint != tcp::resolver::iterator()) {
     if(is_secure_){
       asio::async_connect(socket_, endpoint, 
-        CONNECTION_BIND_(&connection::connect_secure));
+        GENERIC_BIND_(&connection::connect_secure));
     }else {
       asio::async_connect(socket_, endpoint, 
-        CONNECTION_BIND_(&connection::handle_connect));
+        GENERIC_BIND_(&connection::handle_connect));
     }
     SET_TIMER_(timeout_config_.connect(), 
                &connection::handle_connect_timeout);
@@ -84,7 +83,7 @@ void connection::connect_secure(
   if (!err) {
     sockets_.async_handshake(
       asio::ssl::stream_base::client, 
-      CONNECTION_BIND_(&connection::handle_connect));
+      GENERIC_BIND_(&connection::handle_connect));
     
     SET_TIMER_(timeout_config_.connect(), 
                &connection::handle_connect_timeout);
@@ -101,40 +100,43 @@ void connection::handle_connect(
   io_service_.post(boost::bind(handler, err));
 }
 
+// IO_BIND_: Bind error_code, length, and offset to be called
+#define IO_BIND_(Callback, Offset) \
+  boost::bind(Callback, shared_from_this(), _1, _2, \
+              Offset, handler)
+
 void connection::read_some(boost::uint32_t at_least, io_handler_type handler)
 {
   if(is_secure_ == true) {
     boost::asio::async_read(
       sockets_, iobuf_,
       boost::asio::transfer_at_least(at_least),
-      boost::bind(
-        &connection::handle_read, shared_from_this(), 
-        _1, _2, iobuf_.size(), handler));
+      IO_BIND_(&connection::handle_read, iobuf_.size()));
   } else {
     boost::asio::async_read(
       socket_, iobuf_,
       boost::asio::transfer_at_least(at_least),
-      boost::bind(
-        &connection::handle_read, shared_from_this(), 
-        _1, _2, iobuf_.size(), handler));
+      IO_BIND_(&connection::handle_read, iobuf_.size()));
   }
+  
+  SET_TIMER_(timeout_config_.read_num_bytes(at_least),
+             &connection::handle_io_timeout);
 }
 
-void connection::read_until(char const* pattern, io_handler_type handler)
+void connection::read_until(char const* pattern, boost::uint32_t at_most, io_handler_type handler)
 {
   if(is_secure_ == true) {
     boost::asio::async_read_until(
       sockets_, iobuf_, pattern,
-      boost::bind(
-        &connection::handle_read, shared_from_this(), 
-        _1, _2, 0, handler));
+      IO_BIND_(&connection::handle_read, 0));
   } else {
     boost::asio::async_read_until(
       socket_, iobuf_, pattern,
-      boost::bind(
-        &connection::handle_read, shared_from_this(), 
-        _1, _2, 0, handler));
+      IO_BIND_(&connection::handle_read, 0));
   }
+  // FIXME this timer can not be canceled in time
+  //SET_TIMER_(timeout_config_.read_num_bytes(at_most),
+  //           &connection::handle_io_timeout);
 }
 
 void connection::handle_read(
@@ -145,6 +147,8 @@ void connection::handle_read(
   bool is_ssl_short_read_error_ = 
     (err.category() == boost::asio::error::ssl_category &&
     err.value() == ssl_short_read_error_);
+
+  deadline_.cancel();
   if(err && is_ssl_short_read_error_)
     err_ = boost::asio::error::eof;
   io_service_.post(
@@ -156,11 +160,24 @@ void connection::write(io_handler_type handler)
 {
   if(is_secure_ == true){
     boost::asio::async_write(
-      sockets_, iobuf_, boost::bind(handler, _1, _2));
+      sockets_, iobuf_, 
+      IO_BIND_(&connection::handle_write, 0));
   } else {
     boost::asio::async_write(
-      socket_, iobuf_, boost::bind(handler, _1, _2));
+      socket_, iobuf_, 
+      IO_BIND_(&connection::handle_write, 0));
   }
+  SET_TIMER_(timeout_config_.write_num_bytes(iobuf_.size()),
+             &connection::handle_io_timeout);
+}
+
+void connection::handle_write(
+  boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
+  io_handler_type handler)
+{
+  deadline_.cancel();
+  io_service_.post(
+    boost::bind(handler, err, length));
 }
 
 connection::streambuf_type &
@@ -187,3 +204,12 @@ void connection::handle_connect_timeout(
   } 
 }
 
+void connection::handle_io_timeout(
+    boost::system::error_code const &err,
+    io_handler_type handler)
+{
+  if(!err) {
+    sys::error_code ec(sys::errc::stream_timeout, sys::system_category());
+    io_service_.post(boost::bind(handler, ec, 0));
+  }
+}

@@ -39,7 +39,7 @@ public:
     connect_handler_type handler);
 
   void read_some(boost::uint32_t at_least, io_handler_type handler);
-  void read_until(char const* pattern, io_handler_type handler);
+  void read_until(char const* pattern, boost::uint32_t at_most, io_handler_type handler);
   void write(io_handler_type handler);
 
   streambuf_type &io_buffer();
@@ -65,9 +65,18 @@ protected:
     boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
     io_handler_type handler);
 
+  void handle_write(
+    boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
+    io_handler_type handler);
+
   void handle_connect_timeout(
     boost::system::error_code const &err,
     connect_handler_type handler);
+
+  void handle_io_timeout(
+    boost::system::error_code const &err,
+    io_handler_type handler);
+
 private:
   boost::asio::io_service &io_service_;
   resolver    resolver_;

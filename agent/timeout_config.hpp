@@ -6,9 +6,11 @@
 struct timeout_config
 {
   timeout_config(int conn = 5, int wrt_kb = 1, int rd_kb = 1);
+  // Getters
   int connect() const;
   int write_num_bytes(boost::uint32_t bytes) const;
   int read_num_bytes(boost::uint32_t bytes) const;
+  // Setters
   void connect(int conn);
   void write_kb(int wrt_kb);
   void read_kb(int rd_kb);
