@@ -21,7 +21,7 @@ class agent
 public:
   typedef agent_handler_type handler_type;
 
-  agent(boost::asio::io_service &ios);
+  agent(boost::asio::io_service &io_service);
   ~agent();
 
   void async_get(std::string const &url, bool chunked_callback,
@@ -48,6 +48,8 @@ protected:
   http::entity::url init(boost::system::error_code &err, std::string const &method, std::string const &url);
   void start_op(std::string const &server, std::string const &port, 
                 handler_type handler);
+  void handle_resolve(boost::system::error_code const &err, 
+                      tcp::resolver::iterator endpoint);
   void handle_connect(boost::system::error_code const &err);
   void handle_write_request(boost::system::error_code const &err,
                             boost::uint32_t len);
@@ -61,6 +63,7 @@ protected:
   void notify_error(boost::system::error_code const &err);
 private:
   boost::asio::io_service &io_service_;
+  tcp::resolver   resolver_;
   connection_ptr  connection_;
   session_ptr     session_;
   http::response  response_;

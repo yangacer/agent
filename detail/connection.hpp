@@ -5,13 +5,12 @@
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/asio/io_service.hpp>
-#include <boost/asio/streambuf.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ssl.hpp>
-#include <boost/asio/deadline_timer.hpp>
 #include "agent/connection_fwd.hpp"
 #include "agent/timeout_config.hpp"
+#include "ssl_socket.hpp"
 #include "connection_handler_type.hpp"
 
 class session_type;
@@ -31,6 +30,9 @@ public:
   void connect(
     std::string const &server, std::string const &port, 
     session_type &session);
+
+  void connect(resolver::iterator endpoint, 
+               session_type &session);
 
   void read_some(boost::uint32_t at_least, session_type &session);
   void read_until(char const* pattern, boost::uint32_t at_most, session_type &session);
@@ -75,6 +77,7 @@ private:
   socket_type               socket_;
   boost::asio::ssl::context ctx_;
   boost::asio::ssl::stream<socket_type&> sockets_;
+  // TODO ssl_socket_ptr ssl_socket_;
   bool        is_secure_;
   const long  ssl_short_read_error_;
 };

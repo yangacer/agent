@@ -41,8 +41,9 @@ namespace asio = boost::asio;
 namespace asio_ph = boost::asio::placeholders;
 namespace sys = boost::system;
 
-agent::agent(asio::io_service &ios)
-: io_service_(ios), 
+agent::agent(asio::io_service &io_service)
+: io_service_(io_service),
+  resolver_(io_service),
   redirect_count_(0), 
   chunked_callback_(false)
 {}
@@ -200,9 +201,23 @@ void agent::start_op(
   is_canceled_ = false;
   response_.clear();
   handler_ = handler;
-  session_->connect_handler = 
-    boost::bind(&agent::handle_connect, this, asio_ph::error);
-  connection_->connect(server, port, *session_);
+
+  tcp::resolver::query query(server, port);
+  resolver_.async_resolve(
+    query, 
+    boost::bind(&agent::handle_resolve, this, _1, _2));
+}
+
+void agent::handle_resolve(boost::system::error_code const &err, 
+                    tcp::resolver::iterator endpoint)
+{
+  if(!err && endpoint != tcp::resolver::iterator()) {
+    session_->connect_handler = 
+      boost::bind(&agent::handle_connect, this, asio_ph::error);
+    connection_->connect(endpoint, *session_);
+  } else {
+    notify_error(err);
+  }
 }
 
 void agent::handle_connect(boost::system::error_code const &err)
@@ -211,7 +226,7 @@ void agent::handle_connect(boost::system::error_code const &err)
 #ifdef AGENT_LOG_HEADERS
     logger::instance().async_log(
       "request headers", 
-      connection_->socket().remote_endpoint().address(),
+      connection_->socket().remote_endpoint(),
       request_);
 #endif
     session_->io_handler = boost::bind(
@@ -281,7 +296,7 @@ void agent::handle_read_headers(const boost::system::error_code& err)
 #ifdef AGENT_LOG_HEADERS
     logger::instance().async_log(
       "response headers", 
-      connection_->socket().remote_endpoint().address(),
+      connection_->socket().remote_endpoint(),
       response_);
 #endif
     session_->io_buffer.consume(

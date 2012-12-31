@@ -33,6 +33,7 @@ connection::connection(
     is_secure_(false), 
     ssl_short_read_error_(335544539)
 {
+  std::cerr << "Connection object size: " << sizeof(connection) << "\n";
   sockets_.set_verify_mode(boost::asio::ssl::verify_none);
 }
 
@@ -53,7 +54,6 @@ void connection::connect(
       boost::ref(session)));
 }
   
-
 // GENERIC_BIND_: bind error_code and handler to be called 
 #define GENERIC_BIND_(Callback) \
   boost::bind(Callback, shared_from_this(), \
@@ -64,6 +64,24 @@ void connection::connect(
   session.timer.expires_from_now( \
     boost::posix_time::seconds(Seconds)); \
   session.timer.async_wait( GENERIC_BIND_(Callback) );
+
+void connection::connect(resolver::iterator endpoint, 
+                         session_type &session)
+{
+  is_secure_ = 
+    endpoint->endpoint().port() == 443 ||
+    endpoint->endpoint().port() == 445;
+
+  if(is_secure_){
+    asio::async_connect(socket_, endpoint, 
+                        GENERIC_BIND_(&connection::handle_secured_connect));
+  }else {
+    asio::async_connect(socket_, endpoint, 
+                        GENERIC_BIND_(&connection::handle_connect));
+  }
+  SET_TIMER_(session.quality_config.connect(), 
+             &connection::handle_connect_timeout);
+}
 
 void connection::handle_resolve(
   const boost::system::error_code& err, 
