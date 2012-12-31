@@ -28,32 +28,14 @@ connection::connection(
   : io_service_(io_service), 
     resolver_(io_service), 
     socket_(io_service),
-    ctx_(boost::asio::ssl::context::tlsv1_client), 
-    sockets_(socket_, ctx_),
-    is_secure_(false), 
     ssl_short_read_error_(335544539)
 {
   std::cerr << "Connection object size: " << sizeof(connection) << "\n";
-  sockets_.set_verify_mode(boost::asio::ssl::verify_none);
 }
 
 connection::~connection()
 {}
 
-void connection::connect(
-    std::string const &server, std::string const &port, 
-    session_type &session)
-{
-  is_secure_ = detail::is_secured(port);
-  resolver::query query(server, port);
-  resolver_.async_resolve(
-    query,
-    boost::bind(
-      &connection::handle_resolve, shared_from_this(), 
-      asio_ph::error, asio_ph::iterator, 
-      boost::ref(session)));
-}
-  
 // GENERIC_BIND_: bind error_code and handler to be called 
 #define GENERIC_BIND_(Callback) \
   boost::bind(Callback, shared_from_this(), \
@@ -68,11 +50,17 @@ void connection::connect(
 void connection::connect(resolver::iterator endpoint, 
                          session_type &session)
 {
-  is_secure_ = 
+  bool is_ssl = 
     endpoint->endpoint().port() == 443 ||
     endpoint->endpoint().port() == 445;
 
-  if(is_secure_){
+  if(is_ssl){
+    // initialize ssl_socket_
+    ssl_socket_.reset(new ssl_socket(
+        boost::asio::ssl::context::tlsv1_client,
+        socket_));
+    ssl_socket_->socket.set_verify_mode(boost::asio::ssl::verify_none);
+
     asio::async_connect(socket_, endpoint, 
                         GENERIC_BIND_(&connection::handle_secured_connect));
   }else {
@@ -83,32 +71,12 @@ void connection::connect(resolver::iterator endpoint,
              &connection::handle_connect_timeout);
 }
 
-void connection::handle_resolve(
-  const boost::system::error_code& err, 
-  resolver::iterator endpoint,
-  session_type &session)
-{
-  if (!err && endpoint != tcp::resolver::iterator()) {
-    if(is_secure_){
-      asio::async_connect(socket_, endpoint, 
-        GENERIC_BIND_(&connection::handle_secured_connect));
-    }else {
-      asio::async_connect(socket_, endpoint, 
-        GENERIC_BIND_(&connection::handle_connect));
-    }
-    SET_TIMER_(session.quality_config.connect(), 
-               &connection::handle_connect_timeout);
-  } else {
-    io_service_.post(boost::bind(session.connect_handler,err));
-  }
-}
-
 void connection::handle_secured_connect(
   const boost::system::error_code& err,
   session_type &session)
 {
   if (!err) {
-    sockets_.async_handshake(
+    ssl_socket_->socket.async_handshake(
       asio::ssl::stream_base::client, 
       GENERIC_BIND_(&connection::handle_connect));
     
@@ -134,9 +102,9 @@ void connection::handle_connect(
 
 void connection::read_some(boost::uint32_t at_least, session_type &session)
 {
-  if(is_secure_ == true) {
+  if(ssl_socket_) {
     boost::asio::async_read(
-      sockets_, session.io_buffer,
+      ssl_socket_->socket, session.io_buffer,
       boost::asio::transfer_at_least(at_least),
       IO_BIND_(&connection::handle_read, session.io_buffer.size()));
   } else {
@@ -152,9 +120,9 @@ void connection::read_some(boost::uint32_t at_least, session_type &session)
 
 void connection::read_until(char const* pattern, boost::uint32_t at_most, session_type &session)
 {
-  if(is_secure_ == true) {
+  if(ssl_socket_) {
     boost::asio::async_read_until(
-      sockets_, session.io_buffer, pattern,
+      ssl_socket_->socket, session.io_buffer, pattern,
       IO_BIND_(&connection::handle_read, 0));
   } else {
     boost::asio::async_read_until(
@@ -186,9 +154,9 @@ void connection::handle_read(
 
 void connection::write(session_type &session)
 {
-  if(is_secure_ == true){
+  if(ssl_socket_){
     boost::asio::async_write(
-      sockets_, session.io_buffer, 
+      ssl_socket_->socket, session.io_buffer, 
       IO_BIND_(&connection::handle_write, 0));
   } else {
     boost::asio::async_write(

@@ -27,10 +27,6 @@ public:
   connection(boost::asio::io_service &io_service);
   ~connection();
   
-  void connect(
-    std::string const &server, std::string const &port, 
-    session_type &session);
-
   void connect(resolver::iterator endpoint, 
                session_type &session);
 
@@ -44,11 +40,6 @@ public:
 protected:
   void handle_secured_connect(
     const boost::system::error_code& err,
-    session_type &session);
-
-  void handle_resolve(
-    const boost::system::error_code& err, 
-    resolver::iterator endpoint,
     session_type &session);
 
   void handle_connect(
@@ -75,10 +66,7 @@ private:
   boost::asio::io_service   &io_service_;
   resolver                  resolver_;
   socket_type               socket_;
-  boost::asio::ssl::context ctx_;
-  boost::asio::ssl::stream<socket_type&> sockets_;
-  // TODO ssl_socket_ptr ssl_socket_;
-  bool        is_secure_;
+  ssl_socket_ptr ssl_socket_;
   const long  ssl_short_read_error_;
 };
 
