@@ -8,26 +8,31 @@
 #include <boost/asio/write.hpp>
 #include <boost/ref.hpp>
 #include "agent/pre_compile_options.hpp"
+#include "session.hpp"
 
 namespace asio = boost::asio;
 namespace asio_ph = boost::asio::placeholders;
 namespace sys = boost::system;
 
+namespace detail {
+  bool is_secured(std::string const &port)
+  { 
+    return port == "https" || port == "443" || 
+      port == "445"; 
+  }
+}
+
 // ---- conection impl ----
 connection::connection(
-  boost::asio::io_service &io_service, 
-  timeout_config tconf)
+  boost::asio::io_service &io_service)
   : io_service_(io_service), 
     resolver_(io_service), 
     socket_(io_service),
     ctx_(boost::asio::ssl::context::tlsv1_client), 
     sockets_(socket_, ctx_),
     is_secure_(false), 
-    ssl_short_read_error_(335544539),
-    deadline_(io_service), 
-    timeout_config_(tconf)
+    ssl_short_read_error_(335544539)
 {
-  iobuf_.prepare(AGENT_CONNECTION_BUFFER_SIZE);
   sockets_.set_verify_mode(boost::asio::ssl::verify_none);
 }
 
@@ -35,103 +40,107 @@ connection::~connection()
 {}
 
 void connection::connect(
-  std::string const &server, std::string const &port, 
-  connect_handler_type handler)
+    std::string const &server, std::string const &port, 
+    session_type &session)
 {
-  is_secure_ = ("https" == port);
+  is_secure_ = detail::is_secured(port);
   resolver::query query(server, port);
   resolver_.async_resolve(
     query,
     boost::bind(
       &connection::handle_resolve, shared_from_this(), 
-      asio_ph::error, asio_ph::iterator, handler));
+      asio_ph::error, asio_ph::iterator, 
+      boost::ref(session)));
 }
+  
 
 // GENERIC_BIND_: bind error_code and handler to be called 
 #define GENERIC_BIND_(Callback) \
-  boost::bind(Callback, shared_from_this(), asio_ph::error, handler)
+  boost::bind(Callback, shared_from_this(), \
+              asio_ph::error,\
+              boost::ref(session))
 
 #define SET_TIMER_(Seconds, Callback) \
-  deadline_.expires_from_now( \
+  session.timer.expires_from_now( \
     boost::posix_time::seconds(Seconds)); \
-  deadline_.async_wait( GENERIC_BIND_(Callback) );
+  session.timer.async_wait( GENERIC_BIND_(Callback) );
 
 void connection::handle_resolve(
   const boost::system::error_code& err, 
   resolver::iterator endpoint,
-  connect_handler_type handler)
+  session_type &session)
 {
   if (!err && endpoint != tcp::resolver::iterator()) {
     if(is_secure_){
       asio::async_connect(socket_, endpoint, 
-        GENERIC_BIND_(&connection::connect_secure));
+        GENERIC_BIND_(&connection::handle_secured_connect));
     }else {
       asio::async_connect(socket_, endpoint, 
         GENERIC_BIND_(&connection::handle_connect));
     }
-    SET_TIMER_(timeout_config_.connect(), 
+    SET_TIMER_(session.quality_config.connect(), 
                &connection::handle_connect_timeout);
   } else {
-    io_service_.post(boost::bind(handler,err));
+    io_service_.post(boost::bind(session.connect_handler,err));
   }
 }
 
-void connection::connect_secure(
+void connection::handle_secured_connect(
   const boost::system::error_code& err,
-  connect_handler_type handler)
+  session_type &session)
 {
   if (!err) {
     sockets_.async_handshake(
       asio::ssl::stream_base::client, 
       GENERIC_BIND_(&connection::handle_connect));
     
-    SET_TIMER_(timeout_config_.connect(), 
+    SET_TIMER_(session.quality_config.connect(), 
                &connection::handle_connect_timeout);
   } else {
-    io_service_.post(boost::bind(handler,err));
+    io_service_.post(boost::bind(session.connect_handler, err));
   }
 }
 
 void connection::handle_connect(
   const boost::system::error_code& err, 
-  connect_handler_type handler)
+  session_type &session)
 {
-  deadline_.cancel();
-  io_service_.post(boost::bind(handler, err));
+  session.timer.cancel();
+  io_service_.post(boost::bind(session.connect_handler, err));
 }
 
 // IO_BIND_: Bind error_code, length, and offset to be called
 #define IO_BIND_(Callback, Offset) \
   boost::bind(Callback, shared_from_this(), _1, _2, \
-              Offset, handler)
+              Offset, boost::ref(session))
 
-void connection::read_some(boost::uint32_t at_least, io_handler_type handler)
+void connection::read_some(boost::uint32_t at_least, session_type &session)
 {
   if(is_secure_ == true) {
     boost::asio::async_read(
-      sockets_, iobuf_,
+      sockets_, session.io_buffer,
       boost::asio::transfer_at_least(at_least),
-      IO_BIND_(&connection::handle_read, iobuf_.size()));
+      IO_BIND_(&connection::handle_read, session.io_buffer.size()));
   } else {
     boost::asio::async_read(
-      socket_, iobuf_,
+      socket_, session.io_buffer,
       boost::asio::transfer_at_least(at_least),
-      IO_BIND_(&connection::handle_read, iobuf_.size()));
+      IO_BIND_(&connection::handle_read, session.io_buffer.size()));
   }
   
-  SET_TIMER_(timeout_config_.read_num_bytes(at_least),
+  SET_TIMER_(session.quality_config.read_num_bytes(at_least),
              &connection::handle_io_timeout);
 }
 
-void connection::read_until(char const* pattern, boost::uint32_t at_most, io_handler_type handler)
+void connection::read_until(char const* pattern, boost::uint32_t at_most, session_type &session)
 {
   if(is_secure_ == true) {
     boost::asio::async_read_until(
-      sockets_, iobuf_, pattern,
+      sockets_, session.io_buffer, pattern,
       IO_BIND_(&connection::handle_read, 0));
   } else {
     boost::asio::async_read_until(
-      socket_, iobuf_, pattern,
+      socket_, session.io_buffer, pattern,
       IO_BIND_(&connection::handle_read, 0));
   }
   // FIXME this timer can not be canceled in time
@@ -141,53 +150,48 @@ void connection::read_until(char const* pattern, boost::uint32_t at_most, io_han
 
 void connection::handle_read(
     boost::system::error_code const& err, boost::uint32_t length, 
-    boost::uint32_t offset, io_handler_type handler)
+    boost::uint32_t offset, 
+    session_type &session)
 {
   boost::system::error_code err_ = err;
   bool is_ssl_short_read_error_ = 
     (err.category() == boost::asio::error::ssl_category &&
     err.value() == ssl_short_read_error_);
 
-  deadline_.cancel();
+  session.timer.cancel();
   if(err && is_ssl_short_read_error_)
     err_ = boost::asio::error::eof;
   io_service_.post(
-    boost::bind(handler, err_, length));
+    boost::bind(session.io_handler, err_, length));
   // TODO add speed limitation
 }
 
-void connection::write(io_handler_type handler)
+void connection::write(session_type &session)
 {
   if(is_secure_ == true){
     boost::asio::async_write(
-      sockets_, iobuf_, 
+      sockets_, session.io_buffer, 
       IO_BIND_(&connection::handle_write, 0));
   } else {
     boost::asio::async_write(
-      socket_, iobuf_, 
+      socket_, session.io_buffer, 
       IO_BIND_(&connection::handle_write, 0));
   }
-  SET_TIMER_(timeout_config_.write_num_bytes(iobuf_.size()),
+  SET_TIMER_(session.quality_config.write_num_bytes(session.io_buffer.size()),
              &connection::handle_io_timeout);
 }
 
 void connection::handle_write(
   boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
-  io_handler_type handler)
+    session_type &session)
 {
-  deadline_.cancel();
+  session.timer.cancel();
   io_service_.post(
-    boost::bind(handler, err, length));
+    boost::bind(session.io_handler, err, length));
 }
-
-connection::streambuf_type &
-connection::io_buffer() { return iobuf_; }
 
 connection::socket_type &
 connection::socket() {  return socket_; }
-
-timeout_config &
-connection::timeout() { return timeout_config_; }
 
 bool connection::is_open() const
 {  return socket_.is_open(); }
@@ -196,20 +200,20 @@ void connection::close() {  socket_.close(); }
 
 void connection::handle_connect_timeout(
   boost::system::error_code const &err,
-  connect_handler_type handler)
+  session_type &session)
 {
   if(!err) {
     sys::error_code ec(sys::errc::timed_out, sys::system_category());
-    io_service_.post(boost::bind(handler, ec));
+    io_service_.post(boost::bind(session.connect_handler, ec));
   } 
 }
 
 void connection::handle_io_timeout(
     boost::system::error_code const &err,
-    io_handler_type handler)
+    session_type &session)
 {
   if(!err) {
     sys::error_code ec(sys::errc::stream_timeout, sys::system_category());
-    io_service_.post(boost::bind(handler, ec, 0));
+    io_service_.post(boost::bind(session.io_handler, ec, 0));
   }
 }

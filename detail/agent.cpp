@@ -13,6 +13,7 @@
 #include "agent/pre_compile_options.hpp"
 #include "agent/log.hpp"
 #include "connection.hpp"
+#include "session.hpp"
 
 #define AGENT_STR "OokonHTTPAgent Version/0.1.0"
 
@@ -50,7 +51,7 @@ agent::~agent()
 {}
 
 void agent::async_get(std::string const &url, bool chunked_callback,
-                handler_type handler, bool async)
+                      handler_type handler, bool async)
 {
   if( async ) {
     typedef void(agent::*mem_fn_type)(
@@ -63,7 +64,7 @@ void agent::async_get(std::string const &url, bool chunked_callback,
   }
   sys::error_code http_err;
   http::entity::url url_parsed = init(http_err, "GET", url) ;
-  std::ostream os(&connection_->io_buffer());
+  std::ostream os(&session_->io_buffer);
 
   if(http_err) {
     notify_error(http_err);
@@ -77,10 +78,10 @@ void agent::async_get(std::string const &url, bool chunked_callback,
 }
 
 void agent::async_get(std::string const &url, 
-                  http::entity::query_map_t const &parameter,
-                  bool chunked_callback, 
-                  handler_type handler,
-                  bool async)
+                      http::entity::query_map_t const &parameter,
+                      bool chunked_callback, 
+                      handler_type handler,
+                      bool async)
 {
   if( async ) {
     typedef void(agent::*mem_fn_type)(
@@ -89,44 +90,45 @@ void agent::async_get(std::string const &url,
 
     io_service_.post(
       boost::bind((mem_fn_type)&agent::async_get, this, 
-           url,
-           parameter, 
-           chunked_callback, 
-           std::forward<handler_type>(handler), false));
+                  url,
+                  parameter, 
+                  chunked_callback, 
+                  std::forward<handler_type>(handler), false));
     return;
   }
   sys::error_code http_err;
   http::entity::url url_parsed = init(http_err, "GET", url);
-  std::ostream os(&connection_->io_buffer());
+  std::ostream os(&session_->io_buffer);
   if(http_err) {
     notify_error(http_err);
     return;
   }
   request_.query.path = url_parsed.query.path;
   request_.query.query_map = parameter;
-  
+
   chunked_callback_ = chunked_callback;
   os.flush();
   os << request_;
   start_op(url_parsed.host, determine_service(url_parsed), handler);
 }
 
-void agent::async_post(std::string const &url,
-          http::entity::query_map_t const &get_parameter,
-          http::entity::query_map_t const &post_parameter,
-          bool chunked_callback, 
-          handler_type handler,
-          bool async)
+void agent::async_post(
+  std::string const &url,
+  http::entity::query_map_t const &get_parameter,
+  http::entity::query_map_t const &post_parameter,
+  bool chunked_callback, 
+  handler_type handler,
+  bool async)
 {
   if( async ) {
     io_service_.post(
       boost::bind(&agent::async_post, this, url, get_parameter, post_parameter, 
-           chunked_callback, handler, false));
+                  chunked_callback, handler, false));
     return;
   }
   sys::error_code http_err;
   http::entity::url url_parsed = init(http_err, "POST", url);
-  std::ostream os(&connection_->io_buffer());
+  std::ostream os(&session_->io_buffer);
   std::stringstream body;
   http::generator::ostream_iterator body_begin(body);
 
@@ -186,6 +188,8 @@ agent::init(sys::error_code &err, std::string const &method, std::string const &
   redirect_count_ = 0;
   err.assign(0, sys::system_category());
   connection_.reset(new connection(io_service_));
+  session_.reset(new session_type(io_service_));
+  session_->io_buffer.prepare(AGENT_CONNECTION_BUFFER_SIZE);
   return url_parsed;
 }
 
@@ -196,9 +200,9 @@ void agent::start_op(
   is_canceled_ = false;
   response_.clear();
   handler_ = handler;
-  connection_->connect(
-    server, port,
-    boost::bind(&agent::handle_connect, this, asio_ph::error));
+  session_->connect_handler = 
+    boost::bind(&agent::handle_connect, this, asio_ph::error);
+  connection_->connect(server, port, *session_);
 }
 
 void agent::handle_connect(boost::system::error_code const &err)
@@ -210,12 +214,11 @@ void agent::handle_connect(boost::system::error_code const &err)
       connection_->socket().remote_endpoint().address(),
       request_);
 #endif
-    connection_->write(
-      boost::bind(
-        &agent::handle_write_request, this,
-        asio_ph::error,
-        asio_ph::bytes_transferred
-        ));
+    session_->io_handler = boost::bind(
+      &agent::handle_write_request, this,
+      asio_ph::error,
+      asio_ph::bytes_transferred);
+    connection_->write(*session_);
   } else {
     notify_error(err);
   }
@@ -227,11 +230,11 @@ void agent::handle_write_request(
 {
   // FIXME  0 buffer
   if (!err ){
-    connection_->io_buffer().consume(len);
-    connection_->read_until(
-      "\r\n", 512, boost::bind(
-        &agent::handle_read_status_line, this,
-        asio_ph::error));
+    session_->io_buffer.consume(len);
+    session_->io_handler = boost::bind(
+      &agent::handle_read_status_line, this,
+      asio_ph::error);
+    connection_->read_until("\r\n", 512, *session_);
   } else {
     notify_error(err);
   }
@@ -242,22 +245,20 @@ void agent::handle_read_status_line(const boost::system::error_code& err)
   if (!err) {
     sys::error_code http_err;
     // Check that response is OK.
-    auto beg(asio::buffers_begin(connection_->io_buffer().data())), 
-         end(asio::buffers_end(connection_->io_buffer().data()));
+    auto beg(asio::buffers_begin(session_->io_buffer.data())), 
+         end(asio::buffers_end(session_->io_buffer.data()));
 
     if(!http::parser::parse_response_first_line(beg, end, response_)){
       http_err.assign(sys::errc::bad_message, sys::system_category());
       notify_error(http_err);
       return;
     }
-    connection_->io_buffer().consume(
-      beg - asio::buffers_begin(connection_->io_buffer().data()));
+    session_->io_buffer.consume(
+      beg - asio::buffers_begin(session_->io_buffer.data()));
+    session_->io_handler = boost::bind(
+      &agent::handle_read_headers, this, asio_ph::error);
     // Read the response headers, which are terminated by a blank line.
-    connection_->read_until(
-      "\r\n\r\n", 4096,
-      boost::bind(
-        &agent::handle_read_headers, this,
-        asio_ph::error));
+    connection_->read_until("\r\n\r\n", 4096, *session_);
   } else {
     notify_error(err);
   }
@@ -267,8 +268,8 @@ void agent::handle_read_headers(const boost::system::error_code& err)
 {
   if (!err) {
     // Process the response headers.
-    auto beg(asio::buffers_begin(connection_->io_buffer().data())), 
-         end(asio::buffers_end(connection_->io_buffer().data()));
+    auto beg(asio::buffers_begin(session_->io_buffer.data())), 
+         end(asio::buffers_end(session_->io_buffer.data()));
 
     if(!http::parser::parse_header_list(beg, end, response_.headers)) {
       std::cerr << "parse header list failed\nOrigin data:\n";
@@ -283,8 +284,8 @@ void agent::handle_read_headers(const boost::system::error_code& err)
       connection_->socket().remote_endpoint().address(),
       response_);
 #endif
-    connection_->io_buffer().consume(
-      beg - asio::buffers_begin(connection_->io_buffer().data()));
+    session_->io_buffer.consume(
+      beg - asio::buffers_begin(session_->io_buffer.data()));
     // Handle redirection - i.e. 301, 302, 
     if(request_.method == "GET" && 
        response_.status_code >= 300 && 
@@ -298,7 +299,7 @@ void agent::handle_read_headers(const boost::system::error_code& err)
       } else {
         expected_size_ = 0;
       }
-      current_size_ = connection_->io_buffer().size();
+      current_size_ = session_->io_buffer.size();
       notify_header(err);
       read_body();
     }
@@ -310,8 +311,9 @@ void agent::handle_read_headers(const boost::system::error_code& err)
 void agent::read_body() 
 {
   if(!is_canceled_) {
-    connection_->read_some(
-      1, boost::bind(&agent::handle_read_body, this, _1, _2));
+    session_->io_handler = 
+      boost::bind(&agent::handle_read_body, this, _1, _2);
+    connection_->read_some(1, *session_);
   }
 }
 
@@ -340,21 +342,22 @@ void agent::redirect()
     goto OPERATION_CANCEL;
   if(iter == response_.headers.end())
     goto BAD_MESSAGE;
-  
+
   redirect_count_++;
+  // XXX need to check whether to re-connect
   async_get(iter->value, chunked_callback_, 
             std::forward<handler_type>(handler_), false);
-  
+
   return;
 
   BAD_MESSAGE:
     http_err.assign(sys::errc::bad_message, sys::system_category());
-    notify_error(http_err);
+  notify_error(http_err);
   return;
 
   OPERATION_CANCEL:
     http_err.assign(sys::errc::operation_canceled, sys::system_category()); 
-    notify_error(http_err);
+  notify_error(http_err);
   return;
 }
 
@@ -366,16 +369,15 @@ void agent::notify_header(boost::system::error_code const &err)
 
 void agent::notify_chunk(boost::system::error_code const &err)
 {
-  handler_(err, request_, response_, 
-      connection_->io_buffer().data());
-  connection_->io_buffer().consume(connection_->io_buffer().size());
+  handler_(err, request_, response_, session_->io_buffer.data());
+  session_->io_buffer.consume(session_->io_buffer.size());
 }
 
 void agent::notify_error(boost::system::error_code const &err)
 {
-  handler_(err, request_, response_, 
-    connection_->io_buffer().data());
+  handler_(err, request_, response_, session_->io_buffer.data());
   connection_.reset();
+  session_.reset();
   request_.clear();
   response_.clear();
 }

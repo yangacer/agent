@@ -7,21 +7,19 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include "connection_fwd.hpp"
+#include "agent_handler_type.hpp"
 #include "entity.hpp"
+
+class session_type;
 
 class agent
 : private boost::noncopyable
 {
   typedef boost::asio::ip::tcp tcp;
   typedef tcp::resolver resolver;
+  typedef boost::shared_ptr<session_type> session_ptr;
 public:
-  typedef boost::function<
-    void(
-      boost::system::error_code const &,
-      http::request const &,
-      http::response const &, 
-      boost::asio::const_buffers_1 buffer)
-    > handler_type;
+  typedef agent_handler_type handler_type;
 
   agent(boost::asio::io_service &ios);
   ~agent();
@@ -64,6 +62,7 @@ protected:
 private:
   boost::asio::io_service &io_service_;
   connection_ptr  connection_;
+  session_ptr     session_;
   http::response  response_;
   http::request   request_;
   unsigned char   redirect_count_;
