@@ -29,9 +29,7 @@ connection::connection(
     resolver_(io_service), 
     socket_(io_service),
     ssl_short_read_error_(335544539)
-{
-  std::cerr << "Connection object size: " << sizeof(connection) << "\n";
-}
+{}
 
 connection::~connection()
 {}
