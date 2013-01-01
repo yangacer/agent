@@ -188,7 +188,6 @@ agent::init(sys::error_code &err, std::string const &method, std::string const &
 
   redirect_count_ = 0;
   err.assign(0, sys::system_category());
-  connection_.reset(new connection(io_service_));
   session_.reset(new session_type(io_service_));
   session_->io_buffer.prepare(AGENT_CONNECTION_BUFFER_SIZE);
   return url_parsed;
@@ -198,6 +197,8 @@ void agent::start_op(
   std::string const &server, std::string const &port, handler_type handler)
 {
   // TODO global management of connection
+  if(request_.query.path.empty())
+    request_.query.path = "/";
   is_canceled_ = false;
   response_.clear();
   handler_ = handler;
@@ -212,9 +213,17 @@ void agent::handle_resolve(boost::system::error_code const &err,
                     tcp::resolver::iterator endpoint)
 {
   if(!err && endpoint != tcp::resolver::iterator()) {
-    session_->connect_handler = 
-      boost::bind(&agent::handle_connect, this, asio_ph::error);
-    connection_->connect(endpoint, *session_);
+    // is the same server:port ?
+    if( connection_ && connection_->is_open() && 
+        endpoint->endpoint() == connection_->socket().remote_endpoint())
+    {
+      write_request();
+    } else {
+      connection_.reset(new connection(io_service_));
+      session_->connect_handler = 
+        boost::bind(&agent::handle_connect, this, asio_ph::error);
+      connection_->connect(endpoint, *session_);
+    }
   } else {
     notify_error(err);
   }
@@ -223,20 +232,25 @@ void agent::handle_resolve(boost::system::error_code const &err,
 void agent::handle_connect(boost::system::error_code const &err)
 {
   if(!err) {
-#ifdef AGENT_LOG_HEADERS
-    logger::instance().async_log(
-      "request headers", 
-      connection_->socket().remote_endpoint(),
-      request_);
-#endif
-    session_->io_handler = boost::bind(
-      &agent::handle_write_request, this,
-      asio_ph::error,
-      asio_ph::bytes_transferred);
-    connection_->write(*session_);
+    write_request();
   } else {
     notify_error(err);
   }
+}
+
+void agent::write_request()
+{
+#ifdef AGENT_LOG_HEADERS
+  logger::instance().async_log(
+    "request headers", 
+    connection_->socket().remote_endpoint(),
+    request_);
+#endif
+  session_->io_handler = boost::bind(
+    &agent::handle_write_request, this,
+    asio_ph::error,
+    asio_ph::bytes_transferred);
+  connection_->write(*session_); 
 }
 
 void agent::handle_write_request(
@@ -391,7 +405,6 @@ void agent::notify_chunk(boost::system::error_code const &err)
 void agent::notify_error(boost::system::error_code const &err)
 {
   handler_(err, request_, response_, session_->io_buffer.data());
-  connection_.reset();
   session_.reset();
   request_.clear();
   response_.clear();

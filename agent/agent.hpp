@@ -25,20 +25,20 @@ public:
   ~agent();
 
   void async_get(std::string const &url, bool chunked_callback,
-           handler_type handler, bool async = true);
+                 handler_type handler, bool async = true);
 
   void async_get(std::string const &url, 
-           http::entity::query_map_t const &parameter,
-           bool chunked_callback, 
-           handler_type handler,
-           bool async = true);
+                 http::entity::query_map_t const &parameter,
+                 bool chunked_callback, 
+                 handler_type handler,
+                 bool async = true);
 
   void async_post(std::string const &url, 
-            http::entity::query_map_t const &get_parameter,
-            http::entity::query_map_t const &post_parameter,
-            bool chunked_callback, 
-            handler_type handler,
-            bool async = true);
+                  http::entity::query_map_t const &get_parameter,
+                  http::entity::query_map_t const &post_parameter,
+                  bool chunked_callback, 
+                  handler_type handler,
+                  bool async = true);
 
   void async_cancel(bool async = true);
   // TODO int speed() const;
@@ -51,6 +51,7 @@ protected:
   void handle_resolve(boost::system::error_code const &err, 
                       tcp::resolver::iterator endpoint);
   void handle_connect(boost::system::error_code const &err);
+  void write_request();
   void handle_write_request(boost::system::error_code const &err,
                             boost::uint32_t len);
   void handle_read_status_line(boost::system::error_code const &err);
@@ -75,7 +76,6 @@ private:
   boost::int64_t  current_size_;
   bool            is_canceled_;
 };
-// TODO 
-// 4. upload handler (a.k.a write handler)
-
+// TODO upload handler (a.k.a write handler)
+// TODO better buffer management
 #endif

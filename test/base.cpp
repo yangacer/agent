@@ -45,6 +45,9 @@ struct cancel_handler
       assert(false && "cancel failed");
 
     agent_.async_cancel();
+    if(ec) {
+      std::cerr << "cancel_agent: " << ec.message() << "\n";
+    }
   }
 
   bool issue_canceled;
@@ -81,7 +84,7 @@ struct post_handler
   {
     using namespace boost::asio;
     if( boost::asio::error::eof == ec ) {
-      std::cerr << "response code: " << resp.status_code << "\n";
+
     } else if(ec) {
       std::cerr << ec.message() << "\n";
     }
@@ -103,12 +106,11 @@ int main()
 
   logger::instance().use_file("base.log");
   // do 'get' request
-  // setup parameters
   getter.async_get( 
     "http://www.youtube.com/watch?v=8Q2P4LjuVA8", true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
-  //do https 'get' request
+  // do https 'get' request
   getter_s.async_get( 
     "https://www.google.com.tw/", true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
@@ -120,13 +122,9 @@ int main()
               boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
 
   // dispatch cancel_handler
-  cancel_hdlr.get("http://www.boost.org");
-  std::cerr << boost::this_thread::get_id() << ": main thread\n";
+  cancel_hdlr.get("http://www.boost.org/");
   
   ios.run();
-  
-  std::cerr << "main io_service done\n";
-  //logger::instance().~logger();
 
   return 0;
 }
