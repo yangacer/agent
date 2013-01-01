@@ -1,6 +1,6 @@
 #include "agent/log.hpp"
 #include <cstdlib>
-#include <iostream>
+#include <fstream>
 #include <boost/bind.hpp>
 #include <boost/ref.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -39,7 +39,15 @@ logger &logger::instance()
 
 void logger::use_file(std::string const &filename)
 {
-  impl_->io_service().post(
-    boost::bind(&logger_impl::use_file, impl_, filename));
+  using namespace std;
+
+  filebuf* rdbuf = new filebuf();
+  rdbuf->open(filename.c_str(), ios::binary | ios::out);
+  use_file(rdbuf);
 }
 
+void logger::use_file(std::streambuf *rdbuf)
+{
+  impl_->io_service().post(
+    boost::bind(&logger_impl::use_file, impl_, rdbuf));
+}

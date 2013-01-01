@@ -1,5 +1,5 @@
 #include "log_impl.hpp"
-#include <cassert>
+#include <iostream>
 #include <boost/bind.hpp>
 
 logger_impl::logger_impl()
@@ -8,6 +8,7 @@ logger_impl::logger_impl()
     boost::unique_lock<boost::mutex> lock(mutex_);
     io_service_.reset(new boost::asio::io_service);
     work_.reset(new boost::asio::io_service::work(*io_service_));
+    os_.reset(new std::ostream(std::cerr.rdbuf()));
     if(!thread_) {
       thread_.reset(new boost::thread(
           boost::bind(
@@ -19,31 +20,28 @@ logger_impl::logger_impl()
 
 void logger_impl::destroy()
 {
-  work_.reset();
-  if(io_service_.get()) {
-    if(thread_.get()) {
-      boost::unique_lock<boost::mutex> lock(mutex_);
-      if( thread_->joinable() ) {
-        thread_->join();
-      } 
-      assert(0 == io_service_->run_one());
-      thread_.reset();
+  if(work_) {
+    boost::unique_lock<boost::mutex> work_lock(work_mutex_);
+    if(work_) work_.reset();
+    if(io_service_.get()) {
+      if(thread_.get()) {
+        boost::unique_lock<boost::mutex> lock(mutex_);
+        // XXX Trick for making queued task be done
+        while( io_service_->run_one());
+        thread_.reset();
+      }
+      io_service_.reset();
     }
-    io_service_.reset();
   }
 }
 
 boost::asio::io_service& logger_impl::io_service()
 { return *io_service_; }
 
-void logger_impl::use_file(std::string const &filename)
+void logger_impl::use_file(std::streambuf *rdbuf)
 {
-  if(!os_) 
-    os_.reset(new std::ofstream(filename));
-  else { 
-    if (os_->is_open()) os_->close();
-    os_->open(filename);
-  }
+  if(os_) os_->flush();
+  os_.reset(new std::ostream(rdbuf));
 }
 
 void logger_impl::async_log(boost::shared_ptr<std::string> data)
