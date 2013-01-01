@@ -17,7 +17,6 @@ void do_log2()
 
 int main()
 {
-  logger::instance().use_file("multithread.log");
   boost::thread t1(&do_log2), t2(&do_log1);
   
   t1.join();
