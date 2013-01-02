@@ -78,4 +78,6 @@ private:
 };
 // TODO upload handler (a.k.a write handler)
 // TODO better buffer management
+// TODO chunk transfer encoding
+// TODO keep-alive
 #endif
