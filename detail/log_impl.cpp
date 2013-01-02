@@ -38,10 +38,10 @@ void logger_impl::destroy()
 boost::asio::io_service& logger_impl::io_service()
 { return *io_service_; }
 
-void logger_impl::use_file(std::streambuf *rdbuf)
+void logger_impl::use_file(std::ostream &os)
 {
   if(os_) os_->flush();
-  os_.reset(new std::ostream(rdbuf));
+  os_.reset(new std::ostream(os.rdbuf()));
 }
 
 void logger_impl::async_log(boost::shared_ptr<std::string> data)

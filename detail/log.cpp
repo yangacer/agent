@@ -37,17 +37,8 @@ logger &logger::instance()
   return *instance_;
 }
 
-void logger::use_file(std::string const &filename)
-{
-  using namespace std;
-
-  filebuf* rdbuf = new filebuf();
-  rdbuf->open(filename.c_str(), ios::binary | ios::out);
-  use_file(rdbuf);
-}
-
-void logger::use_file(std::streambuf *rdbuf)
+void logger::use_file(std::ostream &os)
 {
   impl_->io_service().post(
-    boost::bind(&logger_impl::use_file, impl_, rdbuf));
+    boost::bind(&logger_impl::use_file, impl_, boost::ref(os)));
 }

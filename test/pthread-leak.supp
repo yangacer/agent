@@ -1,0 +1,25 @@
+{
+   <thread_local_free>
+   Memcheck:Leak
+   fun:malloc
+   fun:_ZN5boost6detail25get_once_per_thread_epochEv
+   fun:_ZN5boost9call_onceIPFvvEEEvRNS_9once_flagET_.constprop.140
+   fun:_ZN5boost6detail23set_current_thread_dataEPNS0_16thread_data_baseE
+   fun:thread_proxy
+   fun:start_thread
+   fun:clone
+}
+{
+   <>
+   Memcheck:Leak
+   fun:calloc
+   fun:_dl_allocate_tls
+   fun:pthread_create@@GLIBC_2.2.5
+   fun:_ZN5boost6thread12start_threadEv
+   fun:_ZN5boost6threadC1INS_3_bi6bind_tIvNS_4_mfi3mf0Iv11logger_implEENS2_5list1INS2_5valueIPS6_EEEEEEEEOT_NS_10disable_ifINS_7is_sameINS_5decayISE_E4typeES0_EEPNS0_5dummyEE4typeE
+   fun:_ZN11logger_implC1Ev
+   fun:_ZN6loggerC1Ev
+   fun:_ZN6logger8instanceEv
+   fun:main
+}
+

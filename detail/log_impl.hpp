@@ -14,7 +14,7 @@ public:
   logger_impl();
   void destroy();
   boost::asio::io_service& io_service();
-  void use_file(std::streambuf *rdbuf);
+  void use_file(std::ostream &os);
   void async_log(boost::shared_ptr<std::string> data);
   void run();
 private:

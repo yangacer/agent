@@ -3,6 +3,7 @@
 #include <ctime>
 #include <string>
 #include <memory>
+#include <ostream>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 
@@ -16,7 +17,7 @@ public:
   ~logger();
   static logger& instance();
   void use_file(std::string const& filename);
-  void use_file(std::streambuf *rdbuf);
+  void use_file(std::ostream &os);
 
   template<typename StreamableObject>
   void async_log(std::string const &name, StreamableObject const &o);

@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cassert>
+#include <fstream>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/thread.hpp>
@@ -68,8 +69,9 @@ struct get_handler
       //write_buffers_to_stdout(buffers);
     } else if( boost::asio::error::eof == ec ) {
       // do someting meaningful
+      std::cerr << "get_handler: eof\n";
     } else {
-      std::cerr  << ec.message() << "\n";
+      std::cerr  << "get_handler: " << ec.message() << "\n";
     }
   }
 };
@@ -86,7 +88,7 @@ struct post_handler
     if( boost::asio::error::eof == ec ) {
 
     } else if(ec) {
-      std::cerr << ec.message() << "\n";
+      std::cerr << "post_handler: " << ec.message() << "\n";
     }
   }
 };
@@ -96,7 +98,8 @@ int main()
   using http::entity::field;
   using http::entity::query_map_t;
   using http::entity::query_pair_t;
-
+  
+  std::ofstream log_file("base.log");
   boost::asio::io_service ios;
   agent getter(ios), getter_s(ios), poster(ios);
   get_handler get_hdlr;
@@ -104,7 +107,7 @@ int main()
   cancel_handler cancel_hdlr(ios);
   query_map_t get_param, post_param;
 
-  logger::instance().use_file("base.log");
+  logger::instance().use_file(log_file);
   // do 'get' request
   getter.async_get( 
     "http://www.youtube.com/watch?v=8Q2P4LjuVA8", true,

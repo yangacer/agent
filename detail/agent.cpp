@@ -339,7 +339,7 @@ void agent::handle_read_headers(const boost::system::error_code& err)
 
 void agent::read_body() 
 {
-  if(!is_canceled_) {
+  if(!is_canceled_ ) {
     session_->io_handler = 
       boost::bind(&agent::handle_read_body, this, _1, _2);
     connection_->read_some(1, *session_);
@@ -349,13 +349,16 @@ void agent::read_body()
 void agent::handle_read_body(
   boost::system::error_code const &err, boost::uint32_t length)
 {
-  if (!err ) {
-    current_size_ += length;
+  current_size_ += length;
+  if (!err && current_size_ != expected_size_) {
     if( chunked_callback_) 
       notify_chunk(err);
     read_body();
   } else {
-    notify_error(err);
+    sys::error_code http_err = err;
+    if( current_size_ == expected_size_ )
+      http_err = asio::error::eof;
+    notify_error(http_err);
   }
 }
 

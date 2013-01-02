@@ -1,12 +1,7 @@
+set( test_targets basic tube log )
 
-add_executable ( base base.cpp )
-target_link_libraries ( base agent )
+foreach( test IN LISTS test_targets )
+  add_executable ( ${test} ${test}.cpp )
+  target_link_libraries ( ${test} agent )
+endforeach()
 
-add_executable ( tube tube.cpp )
-target_link_libraries ( tube agent)
-
-add_executable ( log log.cpp )
-target_link_libraries ( log agent)
-
-#add_executable ( driver driver.cpp )
-#target_link_libraries ( driver agent crypto)
