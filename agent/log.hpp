@@ -16,7 +16,6 @@ class logger
 public:
   ~logger();
   static logger& instance();
-  void use_file(std::string const& filename);
   void use_file(std::ostream &os);
 
   template<typename StreamableObject>

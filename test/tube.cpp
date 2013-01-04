@@ -1,10 +1,12 @@
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include "agent/agent.hpp"
 #include "agent/parser.hpp"
+#include "agent/log.hpp"
 
 namespace asio = boost::asio;
 namespace sys = boost::system;
@@ -199,6 +201,9 @@ int main(int argc, char** argv)
 {
   asio::io_service ios;
   tube_agent ta(ios, 10);
+  std::ofstream log("tube.log"); 
+  logger::instance().use_file(log);
+
   ta.get("http://www.youtube.com/watch?v=NPoHPNeU9fc", "37");
 
   ios.run();

@@ -1,6 +1,9 @@
 #include "agent/agent.hpp"
 #include <string>
 #include <sstream>
+#include <cstring>
+#include <boost/lexical_cast.hpp>
+#include <boost/numeric/conversion/cast.hpp>
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/read_until.hpp>
@@ -301,8 +304,6 @@ void agent::handle_read_headers(const boost::system::error_code& err)
          end(asio::buffers_end(session_->io_buffer.data()));
 
     if(!http::parser::parse_header_list(beg, end, response_.headers)) {
-      std::cerr << "parse header list failed\nOrigin data:\n";
-      std::cerr.write(&*beg, end - beg);
       sys::error_code http_err(sys::errc::bad_message, sys::system_category());
       notify_error(http_err);
       return;
@@ -322,15 +323,93 @@ void agent::handle_read_headers(const boost::system::error_code& err)
     {
       redirect();
     } else {
-      auto content_length = http::find_header(response_.headers, "Content-Length");
-      if( content_length != response_.headers.end()) {
-        expected_size_ = content_length->value_as<boost::int64_t>();
-      } else {
-        expected_size_ = 0;
-      }
-      current_size_ = session_->io_buffer.size();
       notify_header(err);
-      read_body();
+      diagnose_transmission();
+    }
+  } else {
+    notify_error(err);
+  }
+}
+
+void agent::diagnose_transmission()
+{
+#define FIND_HEADER_(Header) \
+  http::find_header(response_.headers, Header)
+  auto npos = response_.headers.end();
+  decltype(npos) header;
+  if(npos != (header = FIND_HEADER_("Transfer-Encoding"))) {
+    expected_size_ = -1;
+    read_chunk();
+  } else {
+    if(npos != (header = FIND_HEADER_("Content-Length")))
+      expected_size_ = header->value_as<boost::int64_t>();
+    else
+      expected_size_ = 0;
+    // TODO eliminate current_size usage
+    current_size_ = session_->io_buffer.size();
+    read_body();
+  }
+}
+
+void agent::read_chunk()
+{
+  if(!is_canceled_) {
+    session_->io_handler = 
+      boost::bind(&agent::handle_read_chunk, this, asio_ph::error);
+    connection_->read_some(1, *session_);
+  }
+}
+
+void agent::handle_read_chunk(boost::system::error_code const& err)
+{
+  using boost::lexical_cast;
+  using boost::numeric_cast;
+  using boost::int64_t;
+  using namespace std;
+
+  if(!err) {
+  RE_READ:
+    auto beg(asio::buffers_begin(session_->io_buffer.data())), 
+         end(asio::buffers_end(session_->io_buffer.data()));
+    auto pos = beg;
+    if( -1 == expected_size_ ) {
+      char const* crlf("\r\n");
+      if( end != (pos = std::search(beg, end, crlf, crlf + 2))) {
+        if( pos == beg ) {
+          session_->io_buffer.consume(2);
+          goto RE_READ; 
+        } else {
+          expected_size_ = strtol(&*beg, NULL, 16);
+          session_->io_buffer.consume((pos + 2) - beg);
+          if(!expected_size_) {
+            notify_error(asio::error::eof);
+            return;
+          }
+        }
+      } else {
+        read_chunk();
+        return;
+      }
+    }
+    if(expected_size_ != -1 && expected_size_ > 0) {
+      if(session_->io_buffer.size()) {
+        size_t to_write;
+        try {
+          to_write = min(
+            session_->io_buffer.size(), numeric_cast<size_t>(expected_size_));
+        } catch (boost::bad_numeric_cast &e) {
+          to_write = session_->io_buffer.size();
+        }
+        notify_chunk(err, to_write);
+        expected_size_ -= to_write;
+      }
+    }
+    expected_size_ = expected_size_ == 0 ? -1 : expected_size_;
+    if(expected_size_) {
+      if(session_->io_buffer.size())
+        goto RE_READ;
+      else
+        read_chunk();
     }
   } else {
     notify_error(err);
@@ -379,7 +458,6 @@ void agent::redirect()
   // XXX need to check whether to re-connect
   async_get(iter->value, chunked_callback_, 
             std::forward<handler_type>(handler_), false);
-
   return;
 
   BAD_MESSAGE:
@@ -399,10 +477,13 @@ void agent::notify_header(boost::system::error_code const &err)
            asio::const_buffers_1(0,0));
 }
 
-void agent::notify_chunk(boost::system::error_code const &err)
+void agent::notify_chunk(boost::system::error_code const &err, boost::uint32_t length)
 {
-  handler_(err, request_, response_, session_->io_buffer.data());
-  session_->io_buffer.consume(session_->io_buffer.size());
+  char const* data = asio::buffer_cast<char const*>(session_->io_buffer.data());
+  boost::uint32_t size = std::min((size_t)length, session_->io_buffer.size());
+  asio::const_buffers_1 chunk(data,size);
+  handler_(err, request_, response_, chunk);
+  session_->io_buffer.consume(size);
 }
 
 void agent::notify_error(boost::system::error_code const &err)
