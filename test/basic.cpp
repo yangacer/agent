@@ -30,7 +30,7 @@ struct cancel_handler
   void get(std::string const& url) 
   {
     agent_.async_get(
-      url, false, 
+      url, true, 
       boost::bind(&cancel_handler::handle_response, this, _1,_2,_3,_4));  
   }
 
@@ -66,10 +66,10 @@ struct get_handler
     using namespace boost::asio;
 
     if(!ec) {
-      write_buffers_to_stdout(buffers);
+      // write_buffers_to_stdout(buffers);
     } else if( boost::asio::error::eof == ec ) {
       // do someting meaningful
-      std::cerr << "get_handler: eof\n";
+      // std::cerr << "get_handler: eof\n";
     } else {
       std::cerr  << "get_handler: " << ec.message() << "\n";
     }
@@ -110,14 +110,13 @@ int main()
   logger::instance().use_file(log_file);
   // do 'get' request
   getter.async_get( 
-    "http://www.boost.org/", true,
-    //"http://www.youtube.com/watch?v=8Q2P4LjuVA8", true,
+    "http://www.youtube.com/watch?v=8Q2P4LjuVA8", true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do https 'get' request
-  //getter_s.async_get( 
-  //  "https://www.google.com.tw/", true,
-  //  boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
+  getter_s.async_get( 
+    "https://www.google.com.tw/", true,
+    boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do 'post' request
   get_param.insert(query_pair_t("dir","aceryang"));
@@ -133,3 +132,4 @@ int main()
   return 0;
 }
 // XXX How to examing correctness without human aid?
+// TODO Connection timeout causes segfault

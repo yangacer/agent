@@ -323,7 +323,6 @@ void agent::handle_read_headers(const boost::system::error_code& err)
     {
       redirect();
     } else {
-      notify_header(err);
       diagnose_transmission();
     }
   } else {
@@ -337,16 +336,20 @@ void agent::diagnose_transmission()
   http::find_header(response_.headers, Header)
   auto npos = response_.headers.end();
   decltype(npos) header;
+  expected_size_ = 0;
   if(npos != (header = FIND_HEADER_("Transfer-Encoding"))) {
-    expected_size_ = -1;
-    read_chunk();
+    if( !chunked_callback_ ) {
+      // XXX Sorry for this.
+      notify_error(sys::error_code(sys::errc::not_supported, sys::system_category()));
+    } else {
+      notify_header(sys::error_code());
+      read_chunk();
+    }
   } else {
     if(npos != (header = FIND_HEADER_("Content-Length")))
       expected_size_ = header->value_as<boost::int64_t>();
-    else
-      expected_size_ = 0;
-    // TODO eliminate current_size usage
     current_size_ = session_->io_buffer.size();
+    notify_header(sys::error_code());
     read_body();
   }
 }
@@ -368,31 +371,8 @@ void agent::handle_read_chunk(boost::system::error_code const& err)
   using namespace std;
 
   if(!err) {
-  RE_READ:
-    auto beg(asio::buffers_begin(session_->io_buffer.data())), 
-         end(asio::buffers_end(session_->io_buffer.data()));
-    auto pos = beg;
-    if( -1 == expected_size_ ) {
-      char const* crlf("\r\n");
-      if( end != (pos = std::search(beg, end, crlf, crlf + 2))) {
-        if( pos == beg ) {
-          session_->io_buffer.consume(2);
-          goto RE_READ; 
-        } else {
-          expected_size_ = strtol(&*beg, NULL, 16);
-          session_->io_buffer.consume((pos + 2) - beg);
-          if(!expected_size_) {
-            notify_error(asio::error::eof);
-            return;
-          }
-        }
-      } else {
-        read_chunk();
-        return;
-      }
-    }
-    if(expected_size_ != -1 && expected_size_ > 0) {
-      if(session_->io_buffer.size()) {
+    while(session_->io_buffer.size() ) {
+      if( expected_size_ ) {
         size_t to_write;
         try {
           to_write = min(
@@ -402,15 +382,34 @@ void agent::handle_read_chunk(boost::system::error_code const& err)
         }
         notify_chunk(err, to_write);
         expected_size_ -= to_write;
+      } else {
+        auto 
+          beg(asio::buffers_begin(session_->io_buffer.data())), 
+          end(asio::buffers_end(session_->io_buffer.data()));
+        auto origin = beg, pos = beg;
+        char const* crlf("\r\n");
+        while( end != (pos = search(beg, end, crlf, crlf + 2))) {
+          if( pos == beg) {
+            beg = pos + 2;
+          } else {
+            if( '0' == *beg) {
+              notify_error(asio::error::eof);
+              return;
+            }
+            expected_size_ = strtol(&*beg, NULL, 16);
+            session_->io_buffer.consume((pos + 2) - origin);
+            if(!expected_size_) {
+              notify_error(sys::error_code(sys::errc::bad_message, sys::system_category()));
+              return;
+            }
+            break;
+          }
+        } // while crlf is matched
+        if(!expected_size_ )
+          break;
       }
-    }
-    expected_size_ = expected_size_ == 0 ? -1 : expected_size_;
-    if(expected_size_) {
-      if(session_->io_buffer.size())
-        goto RE_READ;
-      else
-        read_chunk();
-    }
+    } // while there are buffered data
+    read_chunk();
   } else {
     notify_error(err);
   }
