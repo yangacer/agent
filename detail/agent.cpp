@@ -35,7 +35,7 @@ setup_default_headers(std::vector<http::entity::field> &headers)
   auto header = http::get_header(headers, "Accept");
   if(header->value.empty()) header->value = "*/*";
   header = http::get_header(headers, "Connection");
-  if(header->value.empty()) header->value = "close";
+  if(header->value.empty()) header->value = "keep-alive";
   header = http::get_header(headers, "User-Agent");
   if(header->value.empty()) header->value = AGENT_STR;
 }
@@ -183,6 +183,8 @@ agent::init(sys::error_code &err, std::string const &method, std::string const &
     err.assign(sys::errc::invalid_argument, sys::system_category());
     return url_parsed;
   }
+  if(request_.query.path.empty())
+    request_.query.path = "/";
   request_.method = method;
   request_.http_version_major = 1;
   request_.http_version_minor = 1;
@@ -200,8 +202,6 @@ void agent::start_op(
   std::string const &server, std::string const &port, handler_type handler)
 {
   // TODO global management of connection
-  if(request_.query.path.empty())
-    request_.query.path = "/";
   is_canceled_ = false;
   response_.clear();
   handler_ = handler;
@@ -216,17 +216,18 @@ void agent::handle_resolve(boost::system::error_code const &err,
                     tcp::resolver::iterator endpoint)
 {
   if(!err && endpoint != tcp::resolver::iterator()) {
+    // XXX The is_open does not react as expected
     // is the same server:port ?
-    if( connection_ && connection_->is_open() && 
-        endpoint->endpoint() == connection_->socket().remote_endpoint())
-    {
-      write_request();
-    } else {
+    //if( connection_ && connection_->is_open() && 
+    //    endpoint->endpoint() == connection_->socket().remote_endpoint())
+    //{
+    //  write_request();
+    //} else {
       connection_.reset(new connection(io_service_));
       session_->connect_handler = 
         boost::bind(&agent::handle_connect, this, asio_ph::error);
       connection_->connect(endpoint, *session_);
-    }
+    //}
   } else {
     notify_error(err);
   }
@@ -243,17 +244,22 @@ void agent::handle_connect(boost::system::error_code const &err)
 
 void agent::write_request()
 {
+  sys::error_code error;
 #ifdef AGENT_LOG_HEADERS
   logger::instance().async_log(
     "request headers", 
-    connection_->socket().remote_endpoint(),
+    connection_->socket().remote_endpoint(error),
     request_);
 #endif
-  session_->io_handler = boost::bind(
-    &agent::handle_write_request, this,
-    asio_ph::error,
-    asio_ph::bytes_transferred);
-  connection_->write(*session_); 
+  if( error ) {
+    notify_error(error);
+  } else {
+    session_->io_handler = boost::bind(
+      &agent::handle_write_request, this,
+      asio_ph::error,
+      asio_ph::bytes_transferred);
+    connection_->write(*session_); 
+  }
 }
 
 void agent::handle_write_request(
@@ -302,28 +308,32 @@ void agent::handle_read_headers(const boost::system::error_code& err)
     // Process the response headers.
     auto beg(asio::buffers_begin(session_->io_buffer.data())), 
          end(asio::buffers_end(session_->io_buffer.data()));
-
+    sys::error_code http_err;
     if(!http::parser::parse_header_list(beg, end, response_.headers)) {
-      sys::error_code http_err(sys::errc::bad_message, sys::system_category());
+      http_err.assign(sys::errc::bad_message, sys::system_category());
       notify_error(http_err);
       return;
     }
 #ifdef AGENT_LOG_HEADERS
     logger::instance().async_log(
       "response headers", 
-      connection_->socket().remote_endpoint(),
+      connection_->socket().remote_endpoint(http_err),
       response_);
 #endif
-    session_->io_buffer.consume(
-      beg - asio::buffers_begin(session_->io_buffer.data()));
-    // Handle redirection - i.e. 301, 302, 
-    if(request_.method == "GET" && 
-       response_.status_code >= 300 && 
-       response_.status_code < 400)
-    {
-      redirect();
+    if(http_err) {
+      notify_error(http_err); 
     } else {
-      diagnose_transmission();
+      session_->io_buffer.consume(
+        beg - asio::buffers_begin(session_->io_buffer.data()));
+      // Handle redirection - i.e. 301, 302, 
+      if(request_.method == "GET" && 
+         response_.status_code >= 300 && 
+         response_.status_code < 400)
+      {
+        redirect();
+      } else {
+        diagnose_transmission();
+      }
     }
   } else {
     notify_error(err);
@@ -445,18 +455,31 @@ void agent::redirect()
   namespace sys = boost::system;
   sys::error_code http_err;
   http::entity::url url;
-  auto iter = http::find_header(response_.headers, "Location"); 
-  auto beg(iter->value.begin()), end(iter->value.end());
+  auto header = http::find_header(response_.headers, "Location"); 
+  auto beg(header->value.begin()), end(header->value.end());
 
   if(AGENT_MAXIMUM_REDIRECT_COUNT <= redirect_count_)
     goto OPERATION_CANCEL;
-  if(iter == response_.headers.end())
+  if(header == response_.headers.end())
     goto BAD_MESSAGE;
 
   redirect_count_++;
-  // XXX need to check whether to re-connect
-  async_get(iter->value, chunked_callback_, 
-            std::forward<handler_type>(handler_), false);
+  if( header->value.find("http://") == 0 ) {
+    async_get(header->value, chunked_callback_,  handler_, false);
+  } else { // we got a non-standard relative redirection that sucks!
+    if(header->value[0] != '/')
+      header->value.insert(0, "/");
+    std::stringstream cvt;
+    cvt << "http://" << 
+      connection_->socket().remote_endpoint(http_err) <<
+      header->value
+      ;
+    if(http_err) {
+      notify_error(http_err);
+    } else {
+      async_get(cvt.str(), chunked_callback_, handler_, false);
+    }
+  }
   return;
 
   BAD_MESSAGE:
