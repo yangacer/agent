@@ -1,4 +1,4 @@
-set( test_targets basic tube log )
+set( test_targets basic tube log io_service_pool )
 
 foreach( test IN LISTS test_targets )
   add_executable ( ${test} ${test}.cpp )

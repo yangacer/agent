@@ -7,6 +7,7 @@
 #include "agent/agent.hpp"
 #include "agent/parser.hpp"
 #include "agent/log.hpp"
+#include "agent/status_code.hpp"
 
 namespace asio = boost::asio;
 namespace sys = boost::system;
@@ -58,7 +59,7 @@ protected:
 
     if(!ec) {
     } else if(eof == ec) {
-      if( 200 == resp.status_code ) {
+      if( http::ok == resp.status_code ) {
         string url, signature;
         if(get_link(buffers, itag_, url, signature)) {
           url.append("%26signature%3D").append(signature);
@@ -74,13 +75,13 @@ protected:
           std::cerr.write(&*beg, end - beg);
           std::cerr << "\n---- no matched itag\n";
         }
-      } else if(403 == resp.status_code) {
+      } else if(http::forbidden == resp.status_code) {
         delayed_get();
         std::cerr << "\n---- http error code (" << resp.status_code << "\n";
       }
       //std::cerr << resp.status_code << "\n";
     } else {
-      std::cerr << "error: " << ec.message() << "\n";
+      std::cerr << "get_page error: " << ec.message() << "\n";
     }
   }
 
@@ -136,7 +137,7 @@ protected:
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
   {
-    if(!ec && resp.status_code == 200) {
+    if(!ec && resp.status_code == http::ok) {
       size_t size = asio::buffer_size(buffers);
       if( size == 0 ) {
         auto h = http::find_header(resp.headers, "Content-Length");
@@ -154,7 +155,8 @@ protected:
       if(!received_) 
         delayed_get();
     } else {
-      std::cerr << "error: " << ec.message() << "\n";
+      std::cerr << "handle_video error: ec(" << ec.message() << 
+        "), status_code(" << resp.status_code << ")\n";
     }
   }
 

@@ -1,6 +1,7 @@
 include_directories ( ${PROJECT_SOURCE_DIR} )
 
 set ( AGENT_SRC 
+  io_service_pool.cpp
   log.cpp log_impl.cpp
   parser.cpp generator.cpp entity.cpp
   timeout_config.cpp
