@@ -153,6 +153,7 @@ void connection::handle_read(
     session_type &session)
 {
   AGENT_TRACKING("connection::handle_read");
+  if(!is_open()) return;
   boost::system::error_code err_ = err;
   bool is_ssl_short_read_error_ = 
     (err.category() == boost::asio::error::ssl_category &&
@@ -187,6 +188,7 @@ void connection::handle_write(
     session_type &session)
 {
   AGENT_TRACKING("connection::handle_write");
+  if(!is_open()) return;
   session.timer.cancel();
   io_service_.post(
     boost::bind(session.io_handler, err, length));
@@ -204,9 +206,10 @@ void connection::handle_connect_timeout(
   boost::system::error_code const &err,
   session_type &session)
 {
-  AGENT_TRACKING("connection::handle_connect_timeout");
   if(!err) {
+    AGENT_TRACKING("connection::handle_connect_timeout");
     sys::error_code ec(sys::errc::timed_out, sys::system_category());
+    close();
     io_service_.post(boost::bind(session.connect_handler, ec));
   } 
 }
@@ -215,9 +218,10 @@ void connection::handle_io_timeout(
     boost::system::error_code const &err,
     session_type &session)
 {
-  AGENT_TRACKING("connection::handle_io_timeout");
   if(!err) {
+    AGENT_TRACKING("connection::handle_io_timeout");
     sys::error_code ec(sys::errc::stream_timeout, sys::system_category());
+    close();
     io_service_.post(boost::bind(session.io_handler, ec, 0));
   }
 }

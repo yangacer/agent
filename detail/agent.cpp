@@ -196,7 +196,8 @@ agent::init(sys::error_code &err, std::string const &method, std::string const &
   request_.method = method;
   request_.http_version_major = 1;
   request_.http_version_minor = 1;
-  host->value = url_parsed.host;
+  host->value = url_parsed.host + ":" + 
+    boost::lexical_cast<std::string>(url_parsed.port);
   setup_default_headers(request_.headers);
 
   redirect_count_ = 0;
@@ -379,14 +380,17 @@ void agent::diagnose_transmission()
   } else {
     if(npos != (header = FIND_HEADER_("Content-Length"))) {
       expected_size_ = header->value_as<boost::int64_t>();
-      if(0 == expected_size_) {
+      if(0 == expected_size_ || 
+         expected_size_ == session_->io_buffer.size()) 
+      {
+        notify_header(sys::error_code());
         notify_error(asio::error::eof);
-        return;
-      }
+      } 
+    } else {
+      current_size_ = session_->io_buffer.size();
+      notify_header(sys::error_code());
+      read_body();
     }
-    current_size_ = session_->io_buffer.size();
-    notify_header(sys::error_code());
-    read_body();
   }
 }
 
@@ -560,14 +564,14 @@ void agent::notify_error(boost::system::error_code const &err)
   AGENT_TRACKING("agent::notify_error");
   auto connect_policy = http::find_header(response_.headers, "Connection");
   
-  if(!is_redirecting_ || err != asio::error::eof ) {
+  if(!is_redirecting_) {
     handler_(err, request_, response_, session_->io_buffer.data());
     session_.reset();
     request_.clear();
     if( connect_policy->value == "close" )
       connection_.reset();
   } else {
-    redirect();  
+    redirect(); 
   } 
   response_.clear();
 }
