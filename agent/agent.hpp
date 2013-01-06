@@ -78,6 +78,7 @@ private:
   boost::int64_t  expected_size_;
   boost::int64_t  current_size_;
   bool            is_canceled_;
+  bool            is_redirecting_;
 };
 // TODO upload handler (a.k.a. write handler)
 // TODO better buffer management

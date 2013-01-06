@@ -45,9 +45,9 @@ int main()
                  boost::bind(&get_handler::handle_response, &h3,
                              _1,_2,_3,_4));
 
-  //get4.async_get("http://yangacer.twbbs.org/~yangacer/", false, 
-  //               boost::bind(&get_handler::handle_response, &h4,
-  //                           _1,_2,_3,_4));
+  get4.async_get("http://yangacer.twbbs.org/~yangacer/", false, 
+                 boost::bind(&get_handler::handle_response, &h4,
+                             _1,_2,_3,_4));
 
   sp.run();
 

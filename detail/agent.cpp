@@ -42,7 +42,7 @@ setup_default_headers(std::vector<http::entity::field> &headers)
   auto header = http::get_header(headers, "Accept");
   if(header->value.empty()) header->value = "*/*";
   header = http::get_header(headers, "Connection");
-  if(header->value.empty()) header->value = "close";
+  if(header->value.empty()) header->value = "keep-alive";
   header = http::get_header(headers, "User-Agent");
   if(header->value.empty()) header->value = AGENT_STR;
 }
@@ -213,6 +213,7 @@ void agent::start_op(
 
   // TODO global management of connection
   is_canceled_ = false;
+  is_redirecting_ = false;
   response_.clear();
   handler_ = handler;
 
@@ -227,18 +228,19 @@ void agent::handle_resolve(boost::system::error_code const &err,
 {
 
   if(!err && endpoint != tcp::resolver::iterator()) {
-    AGENT_TRACKING("agent::handle_resolve " + endpoint->endpoint().address().to_string());
     // XXX The is_open does not react as expected
     // is the same server:port ?
     sys::error_code err_;
     if( connection_ && connection_->is_open() && 
         endpoint->endpoint() == connection_->socket().remote_endpoint(err_))
     {
+      AGENT_TRACKING("agent::handle_resolve(reuse) " + endpoint->endpoint().address().to_string());
       if(!err)
         write_request();
       else
         notify_error(err_);
     } else {
+      AGENT_TRACKING("agent::handle_resolve(reconnect) " + endpoint->endpoint().address().to_string());
       connection_.reset(new connection(io_service_));
       session_->connect_handler = 
         boost::bind(&agent::handle_connect, this, asio_ph::error);
@@ -347,15 +349,7 @@ void agent::handle_read_headers(const boost::system::error_code& err)
     } else {
       session_->io_buffer.consume(
         beg - asio::buffers_begin(session_->io_buffer.data()));
-      // Handle redirection - i.e. 301, 302, 
-      if(request_.method == "GET" && 
-         response_.status_code >= 300 && 
-         response_.status_code < 400)
-      {
-        redirect();
-      } else {
-        diagnose_transmission();
-      }
+      diagnose_transmission();
     }
   } else {
     notify_error(err);
@@ -371,6 +365,9 @@ void agent::diagnose_transmission()
   auto npos = response_.headers.end();
   decltype(npos) header;
   expected_size_ = 0;
+  is_redirecting_ = 
+    response_.status_code >= 300 && response_.status_code < 400;
+
   if(npos != (header = FIND_HEADER_("Transfer-Encoding"))) {
     if( !chunked_callback_ ) {
       // XXX Sorry for this.
@@ -380,8 +377,13 @@ void agent::diagnose_transmission()
       read_chunk();
     }
   } else {
-    if(npos != (header = FIND_HEADER_("Content-Length")))
+    if(npos != (header = FIND_HEADER_("Content-Length"))) {
       expected_size_ = header->value_as<boost::int64_t>();
+      if(0 == expected_size_) {
+        notify_error(asio::error::eof);
+        return;
+      }
+    }
     current_size_ = session_->io_buffer.size();
     notify_header(sys::error_code());
     read_body();
@@ -507,9 +509,10 @@ void agent::redirect()
       location->value.insert(0, "/");
     std::stringstream cvt;
     cvt << "http://" << 
-      connection_->socket().remote_endpoint() << 
+      connection_->socket().remote_endpoint(http_err) << 
       location->value  ;
     if(http_err) {
+      is_redirecting_ = false;
       notify_error(http_err);
     } else {
       if( connect_policy->value == "close" )
@@ -520,11 +523,13 @@ void agent::redirect()
   return;
 
   BAD_MESSAGE:
+    is_redirecting_ = false;
     http_err.assign(sys::errc::bad_message, sys::system_category());
   notify_error(http_err);
   return;
 
   OPERATION_CANCEL:
+    is_redirecting_ = false;
     http_err.assign(sys::errc::operation_canceled, sys::system_category()); 
   notify_error(http_err);
   return;
@@ -533,8 +538,9 @@ void agent::redirect()
 void agent::notify_header(boost::system::error_code const &err)
 {
   AGENT_TRACKING("agent::notify_header");
-  handler_(err, request_, response_,
-           asio::const_buffers_1(0,0));
+  if(!is_redirecting_) {
+    handler_(err, request_, response_, asio::const_buffers_1(0,0));
+  }
 }
 
 void agent::notify_chunk(boost::system::error_code const &err, boost::uint32_t length)
@@ -542,8 +548,10 @@ void agent::notify_chunk(boost::system::error_code const &err, boost::uint32_t l
   AGENT_TRACKING("agent::notify_chunk");
   char const* data = asio::buffer_cast<char const*>(session_->io_buffer.data());
   boost::uint32_t size = std::min((size_t)length, session_->io_buffer.size());
-  asio::const_buffers_1 chunk(data,size);
-  handler_(err, request_, response_, chunk);
+  if(!is_redirecting_) {
+    asio::const_buffers_1 chunk(data,size);
+    handler_(err, request_, response_, chunk);
+  }
   session_->io_buffer.consume(size);
 }
 
@@ -551,12 +559,16 @@ void agent::notify_error(boost::system::error_code const &err)
 {
   AGENT_TRACKING("agent::notify_error");
   auto connect_policy = http::find_header(response_.headers, "Connection");
-
-  handler_(err, request_, response_, session_->io_buffer.data());
-  if( connect_policy->value == "close" )
-    connection_.reset();
-  session_.reset();
-  request_.clear();
+  
+  if(!is_redirecting_ || err != asio::error::eof ) {
+    handler_(err, request_, response_, session_->io_buffer.data());
+    session_.reset();
+    request_.clear();
+    if( connect_policy->value == "close" )
+      connection_.reset();
+  } else {
+    redirect();  
+  } 
   response_.clear();
 }
 

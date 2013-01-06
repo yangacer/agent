@@ -10,6 +10,14 @@
 #include "agent/pre_compile_options.hpp"
 #include "session.hpp"
 
+#ifdef AGENT_ENABLE_HANDLER_TRACKING
+#include "agent/log.hpp"
+#   define AGENT_TRACKING(Desc) \
+    logger::instance().async_log(Desc);
+#else
+#   define AGENT_TRACKING(Desc)
+#endif
+
 namespace asio = boost::asio;
 namespace asio_ph = boost::asio::placeholders;
 namespace sys = boost::system;
@@ -48,6 +56,8 @@ connection::~connection()
 void connection::connect(resolver::iterator endpoint, 
                          session_type &session)
 {
+  AGENT_TRACKING("connection::connect");
+
   bool is_ssl = 
     endpoint->endpoint().port() == 443 ||
     endpoint->endpoint().port() == 445;
@@ -73,6 +83,8 @@ void connection::handle_secured_connect(
   const boost::system::error_code& err,
   session_type &session)
 {
+  AGENT_TRACKING("connection::handle_secured_connect");
+
   if (!err) {
     ssl_socket_->socket.async_handshake(
       asio::ssl::stream_base::client, 
@@ -89,6 +101,7 @@ void connection::handle_connect(
   const boost::system::error_code& err, 
   session_type &session)
 {
+  AGENT_TRACKING("connection::handle_connect");
   session.timer.cancel();
   io_service_.post(boost::bind(session.connect_handler, err));
 }
@@ -100,6 +113,7 @@ void connection::handle_connect(
 
 void connection::read_some(boost::uint32_t at_least, session_type &session)
 {
+  AGENT_TRACKING("connection::read_some");
   if(ssl_socket_) {
     boost::asio::async_read(
       ssl_socket_->socket, session.io_buffer,
@@ -118,6 +132,7 @@ void connection::read_some(boost::uint32_t at_least, session_type &session)
 
 void connection::read_until(char const* pattern, boost::uint32_t at_most, session_type &session)
 {
+  AGENT_TRACKING("connection::read_until");
   if(ssl_socket_) {
     boost::asio::async_read_until(
       ssl_socket_->socket, session.io_buffer, pattern,
@@ -137,6 +152,7 @@ void connection::handle_read(
     boost::uint32_t offset, 
     session_type &session)
 {
+  AGENT_TRACKING("connection::handle_read");
   boost::system::error_code err_ = err;
   bool is_ssl_short_read_error_ = 
     (err.category() == boost::asio::error::ssl_category &&
@@ -152,6 +168,7 @@ void connection::handle_read(
 
 void connection::write(session_type &session)
 {
+  AGENT_TRACKING("connection::write");
   if(ssl_socket_){
     boost::asio::async_write(
       ssl_socket_->socket, session.io_buffer, 
@@ -169,6 +186,7 @@ void connection::handle_write(
   boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
     session_type &session)
 {
+  AGENT_TRACKING("connection::handle_write");
   session.timer.cancel();
   io_service_.post(
     boost::bind(session.io_handler, err, length));
@@ -186,6 +204,7 @@ void connection::handle_connect_timeout(
   boost::system::error_code const &err,
   session_type &session)
 {
+  AGENT_TRACKING("connection::handle_connect_timeout");
   if(!err) {
     sys::error_code ec(sys::errc::timed_out, sys::system_category());
     io_service_.post(boost::bind(session.connect_handler, ec));
@@ -196,6 +215,7 @@ void connection::handle_io_timeout(
     boost::system::error_code const &err,
     session_type &session)
 {
+  AGENT_TRACKING("connection::handle_io_timeout");
   if(!err) {
     sys::error_code ec(sys::errc::stream_timeout, sys::system_category());
     io_service_.post(boost::bind(session.io_handler, ec, 0));
