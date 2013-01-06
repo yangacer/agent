@@ -44,6 +44,7 @@ struct tube_agent
   {
     itag_ = itag;
     page_url_ = url;
+    agent_.request().headers << http::entity::field("Connection", "close");
     agent_.async_get(url, false, 
       boost::bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
@@ -59,7 +60,7 @@ protected:
 
     if(!ec) {
     } else if(eof == ec) {
-      if( http::ok == resp.status_code ) {
+      if( 200 == resp.status_code ) {
         string url, signature;
         if(get_link(buffers, itag_, url, signature)) {
           url.append("%26signature%3D").append(signature);
@@ -137,23 +138,29 @@ protected:
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
   {
-    if(!ec && resp.status_code == http::ok) {
-      size_t size = asio::buffer_size(buffers);
+    size_t size = asio::buffer_size(buffers);
+    if(!ec && resp.status_code == 200) {
       if( size == 0 ) {
         auto h = http::find_header(resp.headers, "Content-Length");
         std::cerr << "Content length: " << h->value << "\n\n\n";
         total_ = h->value_as<size_t>();
       } else {
         received_ += size;
-        std::cout.setf(std::ios::fixed);
-        std::cout.precision(2);
-        std::cout.setf(std::ios::showpoint);
         std::cout.width(12);
-        std::cout << "\033[F\033[J" << (100*received_)/(double)total_ << " %\n";
+        std::cout.fill(' ');
+        std::cout << "\033[F\033[J" << (100*received_)/total_ << "%\n";
+          //<< (100*received_)/(double)total_ << " %\n";
       }
     } else if(eof == ec) {
-      if(!received_) 
+      if(!received_) {
         delayed_get();
+      } else {
+        received_ += size;
+        std::cout.width(12);
+        std::cout.fill(' ');
+        std::cout << "\033[F\033[J" << received_ << "\n";
+        std::cout << "Total received: " << received_ << "\n";
+      }
     } else {
       std::cerr << "handle_video error: ec(" << ec.message() << 
         "), status_code(" << resp.status_code << ")\n";
@@ -180,10 +187,9 @@ protected:
   void handle_delayed_get(boost::system::error_code const& ec)
   {
     if(!ec) {
-      std::cerr << "timer no error\n";
       agent_.io_service().post(boost::bind(&tube_agent::get, this, page_url_, itag_));
     } else if(ec == boost::asio::error::operation_aborted) {
-      std::cerr << "timer operation aborted\n";
+      std::cerr << "Operation aborted\n";
     } else {
       std::cerr << ec.message() << "\n";
     }

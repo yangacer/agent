@@ -99,7 +99,7 @@ int main()
   using http::entity::query_map_t;
   using http::entity::query_pair_t;
   
-  std::ofstream log_file("base.log");
+  std::ofstream log_file("basic.log");
   boost::asio::io_service ios;
   agent getter(ios), getter_s(ios), poster(ios);
   get_handler get_hdlr;

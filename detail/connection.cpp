@@ -126,8 +126,8 @@ void connection::read_some(boost::uint32_t at_least, session_type &session)
       IO_BIND_(&connection::handle_read, session.io_buffer.size()));
   }
   
-  SET_TIMER_(session.quality_config.read_num_bytes(at_least),
-             &connection::handle_io_timeout);
+  //SET_TIMER_(session.quality_config.read_num_bytes(at_least),
+  //           &connection::handle_io_timeout);
 }
 
 void connection::read_until(char const* pattern, boost::uint32_t at_most, session_type &session)

@@ -196,8 +196,9 @@ agent::init(sys::error_code &err, std::string const &method, std::string const &
   request_.method = method;
   request_.http_version_major = 1;
   request_.http_version_minor = 1;
-  host->value = url_parsed.host + ":" + 
-    boost::lexical_cast<std::string>(url_parsed.port);
+  host->value = url_parsed.host;
+  if(url_parsed.port) 
+    host->value += ":" + boost::lexical_cast<std::string>(url_parsed.port);
   setup_default_headers(request_.headers);
 
   redirect_count_ = 0;
@@ -385,12 +386,12 @@ void agent::diagnose_transmission()
       {
         notify_header(sys::error_code());
         notify_error(asio::error::eof);
-      } 
-    } else {
-      current_size_ = session_->io_buffer.size();
-      notify_header(sys::error_code());
-      read_body();
-    }
+        return;
+      }  
+    } 
+    current_size_ = session_->io_buffer.size();
+    notify_header(sys::error_code());
+    read_body();
   }
 }
 
@@ -491,7 +492,7 @@ void agent::redirect()
   sys::error_code http_err;
   http::entity::url url;
   auto location = http::find_header(response_.headers, "Location"); 
-  auto connect_policy = http::find_header(response_.headers, "Connection");
+  auto connect_policy = http::find_header(request_.headers, "Connection");
   auto beg(location->value.begin()), end(location->value.end());
 
   if(AGENT_MAXIMUM_REDIRECT_COUNT <= redirect_count_)
@@ -562,14 +563,14 @@ void agent::notify_chunk(boost::system::error_code const &err, boost::uint32_t l
 void agent::notify_error(boost::system::error_code const &err)
 {
   AGENT_TRACKING("agent::notify_error");
-  auto connect_policy = http::find_header(response_.headers, "Connection");
+  auto connect_policy = http::find_header(request_.headers, "Connection");
   
   if(!is_redirecting_) {
     handler_(err, request_, response_, session_->io_buffer.data());
-    session_.reset();
-    request_.clear();
     if( connect_policy->value == "close" )
       connection_.reset();
+    session_.reset();
+    request_.clear();
   } else {
     redirect(); 
   } 

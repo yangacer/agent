@@ -41,7 +41,7 @@ int main()
                  boost::bind(&get_handler::handle_response, &h2,
                              _1,_2,_3,_4));
 
-  get3.async_get("http://ookon_web.nuweb.cc/", true, 
+  get3.async_get("http://ookon_web.nuweb.cc:30004/", true, 
                  boost::bind(&get_handler::handle_response, &h3,
                              _1,_2,_3,_4));
 
