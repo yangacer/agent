@@ -56,11 +56,14 @@ protected:
                             boost::uint32_t len);
   void handle_read_status_line(boost::system::error_code const &err);
   void handle_read_headers(boost::system::error_code const &err);
+  void redirect();
+  void diagnose_transmission();
+  void read_chunk();
+  void handle_read_chunk(boost::system::error_code const &err);
   void read_body();
   void handle_read_body(boost::system::error_code const &err, boost::uint32_t length);
-  void redirect();
   void notify_header(boost::system::error_code const &err);
-  void notify_chunk(boost::system::error_code const &err);
+  void notify_chunk(boost::system::error_code const &err, boost::uint32_t length = -1);
   void notify_error(boost::system::error_code const &err);
 private:
   boost::asio::io_service &io_service_;
@@ -75,7 +78,11 @@ private:
   boost::int64_t  expected_size_;
   boost::int64_t  current_size_;
   bool            is_canceled_;
+  bool            is_redirecting_;
 };
-// TODO upload handler (a.k.a write handler)
+// TODO upload handler (a.k.a. write handler)
 // TODO better buffer management
+// TODO chunk transfer encoding
+// TODO keep-alive
+// TODO auto retry (within configurable max_retry)
 #endif

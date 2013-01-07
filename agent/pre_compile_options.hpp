@@ -16,4 +16,7 @@
 // Connection buffer inititate size
 #define AGENT_CONNECTION_BUFFER_SIZE 2048
 
+// Handler tracking
+#define AGENT_ENABLE_HANDLER_TRACKING
+
 #endif

@@ -30,7 +30,7 @@ struct cancel_handler
   void get(std::string const& url) 
   {
     agent_.async_get(
-      url, false, 
+      url, true, 
       boost::bind(&cancel_handler::handle_response, this, _1,_2,_3,_4));  
   }
 
@@ -66,10 +66,10 @@ struct get_handler
     using namespace boost::asio;
 
     if(!ec) {
-      //write_buffers_to_stdout(buffers);
+      // write_buffers_to_stdout(buffers);
     } else if( boost::asio::error::eof == ec ) {
       // do someting meaningful
-      std::cerr << "get_handler: eof\n";
+      // std::cerr << "get_handler: eof\n";
     } else {
       std::cerr  << "get_handler: " << ec.message() << "\n";
     }
@@ -99,7 +99,7 @@ int main()
   using http::entity::query_map_t;
   using http::entity::query_pair_t;
   
-  std::ofstream log_file("base.log");
+  std::ofstream log_file("basic.log");
   boost::asio::io_service ios;
   agent getter(ios), getter_s(ios), poster(ios);
   get_handler get_hdlr;
@@ -131,4 +131,5 @@ int main()
 
   return 0;
 }
-
+// XXX How to examing correctness without human aid?
+// TODO Connection timeout causes segfault

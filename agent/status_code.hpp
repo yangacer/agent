@@ -2,7 +2,6 @@
 #define GAISWT_STATUS_CODE_HPP_
 
 namespace http {
-  
 enum status_type
 {
   ok = 200,
@@ -23,7 +22,6 @@ enum status_type
   bad_gateway = 502,
   service_unavailable = 503
 };
-
-}
+} // namespace http
 
 #endif // header

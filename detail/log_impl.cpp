@@ -26,7 +26,7 @@ void logger_impl::destroy()
     if(io_service_.get()) {
       if(thread_.get()) {
         boost::unique_lock<boost::mutex> lock(mutex_);
-        // XXX Trick for making queued task be done
+        // XXX Trick for making queued task to be done
         while( io_service_->run_one());
         thread_.reset();
       }
