@@ -132,4 +132,3 @@ int main()
   return 0;
 }
 // XXX How to examing correctness without human aid?
-// TODO Connection timeout causes segfault

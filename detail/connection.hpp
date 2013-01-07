@@ -69,5 +69,6 @@ private:
   ssl_socket_ptr ssl_socket_;
   const long  ssl_short_read_error_;
 };
+// TODO Replace IO timeout. Do not report slow IO active. 
 
 #endif // header guard
