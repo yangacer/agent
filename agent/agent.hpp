@@ -18,9 +18,10 @@ class agent
   typedef boost::asio::ip::tcp tcp;
   typedef tcp::resolver resolver;
   typedef boost::shared_ptr<session_type> session_ptr;
+  typedef boost::shared_ptr<agent_handler_type> handler_ptr;
 public:
   typedef agent_handler_type handler_type;
-
+  
   agent(boost::asio::io_service &io_service);
   ~agent();
 
@@ -74,7 +75,7 @@ private:
   http::request   request_;
   unsigned char   redirect_count_;
   bool            chunked_callback_;
-  handler_type    handler_;
+  handler_ptr     handler_;
   boost::int64_t  expected_size_;
   boost::int64_t  current_size_;
   bool            is_canceled_;
