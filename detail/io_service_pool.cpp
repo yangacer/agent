@@ -30,8 +30,11 @@ io_service_pool::get_io_service(std::size_t number)
 void io_service_pool::run(initiate_status status)
 {
   for(auto i=0;i<io_services_.size();++i) {
-    if(WITHOUT_WORK) 
+    if(status == WITHOUT_WORK) {
+      //std::cerr << "Create io_service::work\n";
       work_ptr work(new asio::io_service::work(*(io_services_[i])));
+      works_.push_back(work);
+    }
     thread_group_.create_thread(
       boost::bind(&asio::io_service::run, io_services_[i]));  
   }

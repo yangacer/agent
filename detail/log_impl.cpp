@@ -27,7 +27,7 @@ void logger_impl::destroy()
       if(thread_.get()) {
         boost::unique_lock<boost::mutex> lock(mutex_);
         // XXX Trick for making queued task to be done
-        while( io_service_->run_one());
+        assert(0 == io_service_->run_one() && "Pending jobs in logger.");
         thread_.reset();
       }
       io_service_.reset();

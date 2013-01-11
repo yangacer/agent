@@ -23,7 +23,7 @@ public:
 private:
   boost::thread_group thread_group_;
   std::vector<io_service_ptr> io_services_;
-  std::vector<io_service_ptr> works_;
+  std::vector<work_ptr> works_;
   size_t next_;
 };
 

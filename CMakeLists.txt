@@ -28,5 +28,7 @@ if(Boost_FOUND)
   link_directories(${Boost_LIBRARY_DIRS})
 endif()
 
+ENABLE_TESTING()
+
 add_subdirectory ( detail )
 add_subdirectory ( test )
