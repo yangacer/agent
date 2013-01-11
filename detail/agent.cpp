@@ -217,7 +217,7 @@ void agent::start_op(
   is_canceled_ = false;
   is_redirecting_ = false;
   response_.clear();
-  handler_ = handler;
+  handler_.reset(new handler_type(handler));
 
   tcp::resolver::query query(server, port);
   resolver_.async_resolve(
@@ -508,7 +508,7 @@ void agent::redirect()
   {
     if( connect_policy->value == "close" )
       connection_.reset();
-    async_get(location->value, chunked_callback_,  handler_, false);
+    async_get(location->value, chunked_callback_,  *handler_, false);
   } else { // we got a non-standard relative redirection that sucks!
     if(location->value[0] != '/')
       location->value.insert(0, "/");
@@ -522,7 +522,7 @@ void agent::redirect()
     } else {
       if( connect_policy->value == "close" )
         connection_.reset();
-      async_get(cvt.str(), chunked_callback_, handler_, false);
+      async_get(cvt.str(), chunked_callback_, *handler_, false);
     }
   }
   return;
@@ -544,7 +544,8 @@ void agent::notify_header(boost::system::error_code const &err)
 {
   AGENT_TRACKING("agent::notify_header");
   if(!is_redirecting_) {
-    handler_(err, request_, response_, asio::const_buffers_1(0,0));
+    (*handler_)(err, request_, response_, asio::const_buffers_1(0,0));
+    if(is_canceled_) handler_.reset();
   }
 }
 
@@ -555,7 +556,8 @@ void agent::notify_chunk(boost::system::error_code const &err, boost::uint32_t l
   boost::uint32_t size = std::min((size_t)length, session_->io_buffer.size());
   if(!is_redirecting_) {
     asio::const_buffers_1 chunk(data,size);
-    handler_(err, request_, response_, chunk);
+    (*handler_)(err, request_, response_, chunk);
+    if(is_canceled_) handler_.reset();
   }
   session_->io_buffer.consume(size);
 }
@@ -566,7 +568,8 @@ void agent::notify_error(boost::system::error_code const &err)
   auto connect_policy = http::find_header(request_.headers, "Connection");
   
   if(!is_redirecting_) {
-    handler_(err, request_, response_, session_->io_buffer.data());
+    (*handler_)(err, request_, response_, session_->io_buffer.data());
+    handler_.reset();
     if( connect_policy->value == "close" )
       connection_.reset();
     session_.reset();
