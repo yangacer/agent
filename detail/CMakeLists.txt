@@ -9,14 +9,12 @@ set ( AGENT_SRC
 
 
 if(MSVC)
-  set ( LIBS libeay32mt ssleay32mt Crypt32)
+  set ( LIBS ${OPENSSL_LIBRARIES} ) #libeay32mt ssleay32mt Crypt32)
   add_library ( agent STATIC ${AGENT_SRC} )
   target_link_libraries( agent ${Boost_LIBRARIES} ${LIBS} ) 
 else()
-  set ( LIBS pthread crypto ssl)
+  set ( LIBS pthread ${OPENSSL_LIBRARIES} )#crypto ssl)
   add_library ( agent SHARED ${AGENT_SRC} )
   target_link_libraries( agent ${Boost_LIBRARIES} ${LIBS} ) 
 endif()
-
-
 
