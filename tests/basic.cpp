@@ -95,6 +95,7 @@ struct post_handler
 
 int main()
 {
+  using http::entity::url;
   using http::entity::field;
   using http::entity::query_map_t;
   using http::entity::query_pair_t;
@@ -110,19 +111,19 @@ int main()
   logger::instance().use_file(log_file);
   // do 'get' request
   getter.async_get( 
-    "http://www.youtube.com/watch?v=8Q2P4LjuVA8", true,
+    url("http://www.youtube.com/watch?v=8Q2P4LjuVA8"), true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do https 'get' request
   getter_s.async_get( 
-    "https://www.google.com.tw/", true,
+    url("https://www.google.com.tw/"), true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do 'post' request
-  get_param.insert(query_pair_t("dir","aceryang"));
   post_param.insert(query_pair_t("encoded", "\r\n1234 6"));
-  poster.async_post( "http://www.posttestserver.com/", get_param, post_param, false,
-              boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
+  poster.async_post(
+    url("http://www.posttestserver.com/?dir=aceryang"), post_param, false,
+    boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
 
   // dispatch cancel_handler
   cancel_hdlr.get("http://www.boost.org/");
