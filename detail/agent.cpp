@@ -61,106 +61,61 @@ agent::agent(asio::io_service &io_service)
 agent::~agent()
 {}
 
-void agent::async_get(std::string const &url, bool chunked_callback,
-                      handler_type handler, bool async)
+void agent::async_get(http::entity::url const& url, bool chunked_callback,
+               handler_type handler, bool async)
 {
   if( async ) {
+    // XXX Parameter will missing after posted
     typedef void(agent::*mem_fn_type)(
-      std::string const &, bool, handler_type, bool);
-
+      http::entity::url const&, bool, handler_type, bool);
     io_service_.post(
-      boost::bind((mem_fn_type)&agent::async_get, this, url, chunked_callback, 
+      boost::bind((mem_fn_type)&agent::async_get, this, url, chunked_callback,
                   handler, false));
     return;
   }
-  sys::error_code http_err;
-  http::entity::url url_parsed = init(http_err, "GET", url) ;
+  init("GET", url);
   std::ostream os(&session_->io_buffer);
-
-  if(http_err) {
-    notify_error(http_err);
-    return;
-  }
-  request_.query = url_parsed.query;
-  chunked_callback_ = chunked_callback;
-  os.flush();
-  os << request_;
-  start_op(url_parsed.host, determine_service(url_parsed), handler);
-}
-
-void agent::async_get(std::string const &url, 
-                      http::entity::query_map_t const &parameter,
-                      bool chunked_callback, 
-                      handler_type handler,
-                      bool async)
-{
-  if( async ) {
-    typedef void(agent::*mem_fn_type)(
-      std::string const &, http::entity::query_map_t const&,
-      bool, handler_type, bool);
-
-    io_service_.post(
-      boost::bind((mem_fn_type)&agent::async_get, this, 
-                  url,
-                  parameter, 
-                  chunked_callback, 
-                  std::forward<handler_type>(handler), false));
-    return;
-  }
-  sys::error_code http_err;
-  http::entity::url url_parsed = init(http_err, "GET", url);
-  std::ostream os(&session_->io_buffer);
-  if(http_err) {
-    notify_error(http_err);
-    return;
-  }
-  request_.query.path = url_parsed.query.path;
-  request_.query.query_map = parameter;
 
   chunked_callback_ = chunked_callback;
   os.flush();
   os << request_;
-  start_op(url_parsed.host, determine_service(url_parsed), handler);
+  start_op(url.host, determine_service(url), handler);
 }
 
-void agent::async_post(
-  std::string const &url,
-  http::entity::query_map_t const &get_parameter,
-  http::entity::query_map_t const &post_parameter,
-  bool chunked_callback, 
-  handler_type handler,
-  bool async)
+void agent::async_post(http::entity::url const &url, 
+                http::entity::query_map_t const &post_parameter,
+                bool chunked_callback,
+                handler_type handler, 
+                bool async)
 {
   if( async ) {
     io_service_.post(
-      boost::bind(&agent::async_post, this, url, get_parameter, post_parameter, 
+      boost::bind(&agent::async_post, this, url, post_parameter,
                   chunked_callback, handler, false));
-    return;
+      return;
   }
-  sys::error_code http_err;
-  http::entity::url url_parsed = init(http_err, "POST", url);
+  using namespace http;
+
+  init("POST", url);
   std::ostream os(&session_->io_buffer);
   std::stringstream body;
-  http::generator::ostream_iterator body_begin(body);
+  generator::ostream_iterator body_begin(body);
+  auto content_type = 
+    get_header(request_.headers, "Content-Type");
+  auto content_length = 
+    get_header(request_.headers, "Content-Length");
 
-  if(http_err) {
-    http_err.assign(sys::errc::invalid_argument, sys::system_category());
-    notify_error(http_err);
-    return;
-  }
-  auto content_type = http::get_header(request_.headers, "Content-Type");
+
   if(content_type->value.empty()) content_type->value = 
     "application/x-www-form-urlencoded";
-  request_.query.path = url_parsed.query.path;
-  request_.query.query_map = get_parameter;
-  http::generator::generate_query_map(body_begin, post_parameter);
-  auto content_length = http::get_header(request_.headers, "Content-Length");
+
+  generator::generate_query_map(body_begin, post_parameter);
   content_length->value_as(body.str().size());
 
   chunked_callback_ = chunked_callback;
   os.flush();
   os << request_ << body.str();
-  start_op(url_parsed.host, determine_service(url_parsed), handler);
+  start_op(url.host, determine_service(url), handler);
 }
 
 void agent::async_cancel(bool async)
@@ -179,33 +134,25 @@ http::request &agent::request()
 asio::io_service &agent::io_service()
 { return io_service_; }
 
-http::entity::url
-agent::init(sys::error_code &err, std::string const &method, std::string const &url) 
+void
+agent::init(std::string const &method, http::entity::url const &url) 
 {
-  sys::error_code http_err;
-  http::entity::url url_parsed;
   auto host = http::get_header(request_.headers, "Host");
-  auto beg(url.begin()), end(url.end());
 
-  if(!http::parser::parse_url(beg, end, url_parsed)) {
-    err.assign(sys::errc::invalid_argument, sys::system_category());
-    return url_parsed;
-  }
   if(request_.query.path.empty())
     request_.query.path = "/";
   request_.method = method;
   request_.http_version_major = 1;
   request_.http_version_minor = 1;
-  host->value = url_parsed.host;
-  if(url_parsed.port) 
-    host->value += ":" + boost::lexical_cast<std::string>(url_parsed.port);
+  request_.query = url.query;
+  host->value = url.host;
+  if(url.port) 
+    host->value += ":" + boost::lexical_cast<std::string>(url.port);
   setup_default_headers(request_.headers);
 
   redirect_count_ = 0;
-  err.assign(0, sys::system_category());
   session_.reset(new session_type(io_service_));
   session_->io_buffer.prepare(AGENT_CONNECTION_BUFFER_SIZE);
-  return url_parsed;
 }
 
 void agent::start_op(

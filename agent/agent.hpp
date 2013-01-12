@@ -24,21 +24,14 @@ public:
   
   agent(boost::asio::io_service &io_service);
   ~agent();
-
-  void async_get(std::string const &url, bool chunked_callback,
+  
+  void async_get(http::entity::url const &url, bool chunked_callback,
                  handler_type handler, bool async = true);
 
-  void async_get(std::string const &url, 
-                 http::entity::query_map_t const &parameter,
-                 bool chunked_callback, 
-                 handler_type handler,
-                 bool async = true);
-
-  void async_post(std::string const &url, 
-                  http::entity::query_map_t const &get_parameter,
+  void async_post(http::entity::url const &url, 
                   http::entity::query_map_t const &post_parameter,
-                  bool chunked_callback, 
-                  handler_type handler,
+                  bool chunked_callback,
+                  handler_type handler, 
                   bool async = true);
 
   void async_cancel(bool async = true);
@@ -46,7 +39,7 @@ public:
   http::request &request();
   boost::asio::io_service& io_service();
 protected:
-  http::entity::url init(boost::system::error_code &err, std::string const &method, std::string const &url);
+  void init(std::string const &method, http::entity::url const &url);
   void start_op(std::string const &server, std::string const &port, 
                 handler_type handler);
   void handle_resolve(boost::system::error_code const &err, 

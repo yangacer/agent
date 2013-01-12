@@ -7,6 +7,7 @@ namespace http {
 namespace entity {
 
 url::url(std::string const &escaped_url)
+  : port(0)
 {
   auto beg(escaped_url.begin()), end(escaped_url.end());
   parser::parse_url(beg, end, *this);
