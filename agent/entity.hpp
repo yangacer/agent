@@ -50,6 +50,7 @@ struct uri
 struct url
 {
   url():port(0){}
+  url(std::string const &escpaed_url);
 
   std::string scheme;
   std::string host;
