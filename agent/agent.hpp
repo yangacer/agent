@@ -18,26 +18,20 @@ class agent
   typedef boost::asio::ip::tcp tcp;
   typedef tcp::resolver resolver;
   typedef boost::shared_ptr<session_type> session_ptr;
+  typedef boost::shared_ptr<agent_handler_type> handler_ptr;
 public:
   typedef agent_handler_type handler_type;
-
+  
   agent(boost::asio::io_service &io_service);
   ~agent();
-
-  void async_get(std::string const &url, bool chunked_callback,
+  
+  void async_get(http::entity::url const &url, bool chunked_callback,
                  handler_type handler, bool async = true);
 
-  void async_get(std::string const &url, 
-                 http::entity::query_map_t const &parameter,
-                 bool chunked_callback, 
-                 handler_type handler,
-                 bool async = true);
-
-  void async_post(std::string const &url, 
-                  http::entity::query_map_t const &get_parameter,
+  void async_post(http::entity::url const &url, 
                   http::entity::query_map_t const &post_parameter,
-                  bool chunked_callback, 
-                  handler_type handler,
+                  bool chunked_callback,
+                  handler_type handler, 
                   bool async = true);
 
   void async_cancel(bool async = true);
@@ -45,7 +39,7 @@ public:
   http::request &request();
   boost::asio::io_service& io_service();
 protected:
-  http::entity::url init(boost::system::error_code &err, std::string const &method, std::string const &url);
+  void init(std::string const &method, http::entity::url const &url);
   void start_op(std::string const &server, std::string const &port, 
                 handler_type handler);
   void handle_resolve(boost::system::error_code const &err, 
@@ -56,11 +50,14 @@ protected:
                             boost::uint32_t len);
   void handle_read_status_line(boost::system::error_code const &err);
   void handle_read_headers(boost::system::error_code const &err);
+  void redirect();
+  void diagnose_transmission();
+  void read_chunk();
+  void handle_read_chunk(boost::system::error_code const &err);
   void read_body();
   void handle_read_body(boost::system::error_code const &err, boost::uint32_t length);
-  void redirect();
   void notify_header(boost::system::error_code const &err);
-  void notify_chunk(boost::system::error_code const &err);
+  void notify_chunk(boost::system::error_code const &err, boost::uint32_t length = -1);
   void notify_error(boost::system::error_code const &err);
 private:
   boost::asio::io_service &io_service_;
@@ -71,11 +68,15 @@ private:
   http::request   request_;
   unsigned char   redirect_count_;
   bool            chunked_callback_;
-  handler_type    handler_;
+  handler_ptr     handler_;
   boost::int64_t  expected_size_;
   boost::int64_t  current_size_;
   bool            is_canceled_;
+  bool            is_redirecting_;
 };
-// TODO upload handler (a.k.a write handler)
+// TODO upload handler (a.k.a. write handler)
 // TODO better buffer management
+// TODO chunk transfer encoding
+// TODO keep-alive
+// TODO auto retry (within configurable max_retry)
 #endif

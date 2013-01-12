@@ -47,7 +47,7 @@ url_esc_string<Iterator>::url_esc_string()
 {
   unesc_char %=
     (qi::lit('%') >> hex2) |
-    qi::char_("a-zA-Z0-9_.~!*'()") | 
+    qi::char_("a-zA-Z0-9_.~!*'()/") | 
     qi::char_('-')
     ;
 
@@ -97,12 +97,8 @@ uri<Iterator>::uri()
   using qi::ushort_;
   using qi::print;
 
-  //qi::real_parser< double, strict_real_policies<double> > real_;
-  //typedef qi::int_parser< boost::int64_t > int64_parser;
-  //int64_parser int64_;
-
   query_value =
-    esc_string((char const*)"&= #") | //+(char_ - char_("&= #"))
+    esc_string((char const*)"&= #") | 
     real_ | int64_ 
     ;
 
@@ -117,7 +113,6 @@ uri<Iterator>::uri()
 
   start %=
     *(char_('/') >> esc_string((char const*)"?# ")) >> 
-    //*(print - char_("?# "))) >> 
     -( '?' >> query_map)
     ;
   
@@ -173,8 +168,7 @@ response_first_line<Iterator>::response_first_line()
   start %= 
     lit("HTTP/") >> int_ >> '.' >> int_ >> sp >>
     uint_ >> sp >>
-    +(char_ - cr) >> lit(crlf) //>>
-    //-(headers)  
+    +(char_ - cr) >> lit(crlf) 
     ;
 
   GAISWT_DEBUG_PARSER_GEN("response_first_line");
@@ -195,7 +189,6 @@ request_first_line<Iterator>::request_first_line()
     +(char_ - sp) >> sp >> 
     query >> sp >>
     lit("HTTP/") >> int_ >> '.' >> int_ >> crlf
-    // >> -(headers)  
     ;
 
   GAISWT_DEBUG_PARSER_GEN("request_first_line");

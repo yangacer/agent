@@ -16,8 +16,9 @@ class logger
 public:
   ~logger();
   static logger& instance();
-  void use_file(std::string const& filename);
   void use_file(std::ostream &os);
+
+  void async_log(std::string const &name);
 
   template<typename StreamableObject>
   void async_log(std::string const &name, StreamableObject const &o);

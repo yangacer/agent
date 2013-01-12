@@ -30,7 +30,7 @@ struct cancel_handler
   void get(std::string const& url) 
   {
     agent_.async_get(
-      url, false, 
+      url, true, 
       boost::bind(&cancel_handler::handle_response, this, _1,_2,_3,_4));  
   }
 
@@ -66,10 +66,10 @@ struct get_handler
     using namespace boost::asio;
 
     if(!ec) {
-      //write_buffers_to_stdout(buffers);
+      // write_buffers_to_stdout(buffers);
     } else if( boost::asio::error::eof == ec ) {
       // do someting meaningful
-      std::cerr << "get_handler: eof\n";
+      // std::cerr << "get_handler: eof\n";
     } else {
       std::cerr  << "get_handler: " << ec.message() << "\n";
     }
@@ -95,11 +95,12 @@ struct post_handler
 
 int main()
 {
+  using http::entity::url;
   using http::entity::field;
   using http::entity::query_map_t;
   using http::entity::query_pair_t;
   
-  std::ofstream log_file("base.log");
+  std::ofstream log_file("basic.log");
   boost::asio::io_service ios;
   agent getter(ios), getter_s(ios), poster(ios);
   get_handler get_hdlr;
@@ -110,19 +111,19 @@ int main()
   logger::instance().use_file(log_file);
   // do 'get' request
   getter.async_get( 
-    "http://www.youtube.com/watch?v=8Q2P4LjuVA8", true,
+    url("http://www.youtube.com/watch?v=8Q2P4LjuVA8"), true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do https 'get' request
   getter_s.async_get( 
-    "https://www.google.com.tw/", true,
+    url("https://www.google.com.tw/"), true,
     boost::bind(&get_handler::handle_response, &get_hdlr,_1,_2,_3,_4));
   
   // do 'post' request
-  get_param.insert(query_pair_t("dir","aceryang"));
   post_param.insert(query_pair_t("encoded", "\r\n1234 6"));
-  poster.async_post( "http://www.posttestserver.com/", get_param, post_param, false,
-              boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
+  poster.async_post(
+    url("http://www.posttestserver.com/?dir=aceryang"), post_param, false,
+    boost::bind(&post_handler::handle_response, &post_hdlr,_1,_2,_3,_4));
 
   // dispatch cancel_handler
   cancel_hdlr.get("http://www.boost.org/");
@@ -131,4 +132,4 @@ int main()
 
   return 0;
 }
-
+// XXX How to examing correctness without human aid?

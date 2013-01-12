@@ -1,10 +1,13 @@
 #include <iostream>
+#include <fstream>
 #include <algorithm>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include "agent/agent.hpp"
 #include "agent/parser.hpp"
+#include "agent/log.hpp"
+#include "agent/status_code.hpp"
 
 namespace asio = boost::asio;
 namespace sys = boost::system;
@@ -41,6 +44,7 @@ struct tube_agent
   {
     itag_ = itag;
     page_url_ = url;
+    agent_.request().headers << http::entity::field("Connection", "close");
     agent_.async_get(url, false, 
       boost::bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
@@ -72,13 +76,13 @@ protected:
           std::cerr.write(&*beg, end - beg);
           std::cerr << "\n---- no matched itag\n";
         }
-      } else if(403 == resp.status_code) {
+      } else if(http::forbidden == resp.status_code) {
         delayed_get();
         std::cerr << "\n---- http error code (" << resp.status_code << "\n";
       }
       //std::cerr << resp.status_code << "\n";
     } else {
-      std::cerr << "error: " << ec.message() << "\n";
+      std::cerr << "get_page error: " << ec.message() << "\n";
     }
   }
 
@@ -134,25 +138,32 @@ protected:
     sys::error_code const& ec, http::request const& req,
     http::response const &resp, asio::const_buffers_1 buffers)
   {
+    size_t size = asio::buffer_size(buffers);
     if(!ec && resp.status_code == 200) {
-      size_t size = asio::buffer_size(buffers);
       if( size == 0 ) {
         auto h = http::find_header(resp.headers, "Content-Length");
         std::cerr << "Content length: " << h->value << "\n\n\n";
         total_ = h->value_as<size_t>();
       } else {
         received_ += size;
-        std::cout.setf(std::ios::fixed);
-        std::cout.precision(2);
-        std::cout.setf(std::ios::showpoint);
         std::cout.width(12);
-        std::cout << "\033[F\033[J" << (100*received_)/(double)total_ << " %\n";
+        std::cout.fill(' ');
+        std::cout << "\033[F\033[J" << (100*received_)/total_ << "%\n";
+          //<< (100*received_)/(double)total_ << " %\n";
       }
     } else if(eof == ec) {
-      if(!received_) 
+      if(!received_) {
         delayed_get();
+      } else {
+        received_ += size;
+        std::cout.width(12);
+        std::cout.fill(' ');
+        std::cout << "\033[F\033[J" << received_ << "\n";
+        std::cout << "Total received: " << received_ << "\n";
+      }
     } else {
-      std::cerr << "error: " << ec.message() << "\n";
+      std::cerr << "handle_video error: ec(" << ec.message() << 
+        "), status_code(" << resp.status_code << ")\n";
     }
   }
 
@@ -176,10 +187,9 @@ protected:
   void handle_delayed_get(boost::system::error_code const& ec)
   {
     if(!ec) {
-      std::cerr << "timer no error\n";
       agent_.io_service().post(boost::bind(&tube_agent::get, this, page_url_, itag_));
     } else if(ec == boost::asio::error::operation_aborted) {
-      std::cerr << "timer operation aborted\n";
+      std::cerr << "Operation aborted\n";
     } else {
       std::cerr << ec.message() << "\n";
     }
@@ -199,6 +209,9 @@ int main(int argc, char** argv)
 {
   asio::io_service ios;
   tube_agent ta(ios, 10);
+  std::ofstream log("tube.log"); 
+  logger::instance().use_file(log);
+
   ta.get("http://www.youtube.com/watch?v=NPoHPNeU9fc", "37");
 
   ios.run();

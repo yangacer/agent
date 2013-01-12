@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(Agent)
+project(Agent CXX)
 
 list (APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_mod)
 
@@ -33,6 +33,8 @@ find_package ( OpenSSL REQUIRED )
 if(OPENSSL_FOUND)
   include_directories(${OPENSSL_INCLUDE_DIR})
 endif()
+
+ENABLE_TESTING()
 
 add_subdirectory ( detail )
 add_subdirectory ( tests )
