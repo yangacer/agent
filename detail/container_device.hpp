@@ -72,8 +72,8 @@ public:
     Container& container() { return container_; }
 private:
     typedef typename Container::size_type   size_type;
-    Container&  container_;
-    size_type   pos_;
+    Container& container_;
+    std::streamsize pos_;
 };
 
 
