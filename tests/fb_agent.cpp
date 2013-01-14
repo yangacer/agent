@@ -2,7 +2,7 @@
 #include "agent/io_service_pool.hpp"
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include <json_sprit/json_spirit.h>
+#include <json_spirit/json_spirit.h>
 #include <fstream>
 
 class agent_pool{
@@ -198,7 +198,7 @@ private:
 			return;
 		}
 		int fb_err_code = tmp_it->second.get_int();
-		if(fb_err_code == 1 || fb_err_code == 2 || fb_err_code == 4 || fb_err_code == 17){
+		if(fb_err_code == 1 || fb_err_code == 2 || fb_err_code == 4 || fb_err_code == 9 || fb_err_code == 17){
 			shared_info->blocked_timer_.expires_from_now(boost::posix_time::seconds(60));
 				shared_info->blocked_timer_.async_wait(boost::bind(
 					&fb_agent::register_endpoint, this, shared_info));
