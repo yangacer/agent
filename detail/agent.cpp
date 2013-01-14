@@ -516,14 +516,15 @@ void agent::notify_error(boost::system::error_code const &err)
   
   if(!is_redirecting_) {
     (*handler_)(err, request_, response_, session_->io_buffer.data());
-    handler_.reset();
     if( connect_policy->value == "close" )
       connection_.reset();
     session_.reset();
     request_.clear();
+    response_.clear();
+    handler_.reset();
   } else {
     redirect(); 
+    response_.clear();
   } 
-  response_.clear();
 }
 
