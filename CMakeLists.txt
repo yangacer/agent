@@ -32,4 +32,4 @@ endif()
 ENABLE_TESTING()
 
 add_subdirectory ( detail )
-add_subdirectory ( test )
+add_subdirectory ( tests )
