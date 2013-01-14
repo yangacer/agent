@@ -1,9 +1,17 @@
 #include "agent/entity.hpp"
 #include "agent/generator.hpp"
 #include "agent/status_code.hpp"
+#include "agent/parser.hpp"
 
 namespace http {
 namespace entity {
+
+url::url(std::string const &escaped_url)
+  : port(0)
+{
+  auto beg(escaped_url.begin()), end(escaped_url.end());
+  parser::parse_url(beg, end, *this);
+}
 
 void request::clear()
 {

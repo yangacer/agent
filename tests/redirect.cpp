@@ -25,13 +25,15 @@ struct get_handler
 
 int main()
 {
+  using http::entity::url;
+
   boost::asio::io_service io_service;
   agent getter(io_service);
   get_handler handler;
   std::ofstream logfile("redirect.log");
   logger::instance().use_file(logfile);
 
-  getter.async_get("http://ookon_web.nuweb.cc:30004/", true, 
+  getter.async_get(url("http://ookon_web.nuweb.cc:30004/"), true, 
                  boost::bind(&get_handler::handle_response, &handler,
                              _1,_2,_3,_4));
   io_service.run();

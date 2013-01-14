@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(Agent)
+project(Agent CXX)
 
 list (APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_mod)
 
@@ -32,4 +32,4 @@ endif()
 ENABLE_TESTING()
 
 add_subdirectory ( detail )
-add_subdirectory ( test )
+add_subdirectory ( tests )
