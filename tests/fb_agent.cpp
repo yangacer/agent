@@ -199,7 +199,7 @@ private:
 		}
 		int fb_err_code = tmp_it->second.get_int();
 		if(fb_err_code == 1 || fb_err_code == 2 || fb_err_code == 4 || fb_err_code == 9 || fb_err_code == 17){
-			shared_info->blocked_timer_.expires_from_now(boost::posix_time::seconds(60));
+			shared_info->blocked_timer_.expires_from_now(boost::posix_time::seconds(120));
 				shared_info->blocked_timer_.async_wait(boost::bind(
 					&fb_agent::register_endpoint, this, shared_info));
 			return;
@@ -213,7 +213,9 @@ private:
 		char const* data = 0;
 		while (i != buffers.end()){
 			data = buffer_cast<char const*>(*i);
-			fnl_data.append(data, buffer_size(*i));
+			if(data != NULL && buffer_size(*i) > 0){
+				fnl_data.append(data, buffer_size(*i));
+			}
 			++i;
 		}
 	}
