@@ -515,7 +515,12 @@ void agent::notify_error(boost::system::error_code const &err)
   auto connect_policy = http::find_header(request_.headers, "Connection");
   
   if(!is_redirecting_) {
-    (*handler_)(err, request_, response_, session_->io_buffer.data());
+    char const *data = (session_) ? 
+      asio::buffer_cast<char const*>(session_->io_buffer.data()) : NULL;
+    boost::uint32_t size = (data) ? session_->io_buffer.size() : 0;
+
+    asio::const_buffers_1 chunk(data,size);
+    (*handler_)(err, request_, response_, chunk);
     if( connect_policy->value == "close" )
       connection_.reset();
     session_.reset();
