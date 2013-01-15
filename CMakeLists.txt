@@ -29,6 +29,11 @@ if(Boost_FOUND)
   link_directories(${Boost_LIBRARY_DIRS})
 endif()
 
+find_package ( OpenSSL REQUIRED )
+if(OPENSSL_FOUND)
+  include_directories(${OPENSSL_INCLUDE_DIR})
+endif()
+
 ENABLE_TESTING()
 
 add_subdirectory ( detail )

@@ -368,7 +368,7 @@ void agent::handle_read_chunk(boost::system::error_code const& err)
         try {
           to_write = min(
             session_->io_buffer.size(), numeric_cast<size_t>(expected_size_));
-        } catch (boost::bad_numeric_cast &e) {
+        } catch (boost::bad_numeric_cast &) {
           to_write = session_->io_buffer.size();
         }
         notify_chunk(err, to_write);
