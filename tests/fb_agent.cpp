@@ -17,28 +17,28 @@ public:
 			agents_num_(agents_num), running_agent_(0){
 	}
 	agent_ptr new_agent(boost::asio::io_service &service){
-		// boost::mutex::scoped_lock lock(ag_mutex_);
-		// agent *p_agent = NULL;
-		// if(running_agent_ >= agents_num_){
-			// return agent_ptr();
-		// }
-		// if(agents_list_.size() > 0){
-			// p_agent = agents_list_.back();
-			// agents_list_.pop_back();
-		// }else{
-			// p_agent = new agent(service);
-		// }
-		agent *p_agent = new agent(service);
+		boost::mutex::scoped_lock lock(ag_mutex_);
+		agent *p_agent = NULL;
+		if(running_agent_ >= agents_num_){
+			return agent_ptr();
+		}
+		if(agents_list_.size() > 0){
+			p_agent = agents_list_.back();
+			agents_list_.pop_back();
+		}else{
+			p_agent = new agent(service);
+		}
+		// agent *p_agent = new agent(service);
 		agent_ptr sp_agent(p_agent,
 				boost::bind(&agent_pool::release_agent, this, _1));
-		// running_agent_++;
+		running_agent_++;
 		return sp_agent;
 	}
 	void release_agent(agent *old_agent){
-		// boost::mutex::scoped_lock lock(ag_mutex_);
-		// agents_list_.push_back(old_agent);
-		// running_agent_--;
-		delete old_agent;
+		boost::mutex::scoped_lock lock(ag_mutex_);
+		agents_list_.push_back(old_agent);
+		running_agent_--;
+		//delete old_agent;
 	}
 };
 
@@ -198,7 +198,7 @@ private:
 			return;
 		}
 		int fb_err_code = tmp_it->second.get_int();
-		if(fb_err_code == 1 || fb_err_code == 2 || fb_err_code == 4 || fb_err_code == 9 || fb_err_code == 17){
+		if(fb_err_code == 1 || fb_err_code == 2 || fb_err_code == 4 || fb_err_code == 9 || fb_err_code == 17 || fb_err_code == 613){
 			shared_info->blocked_timer_.expires_from_now(boost::posix_time::seconds(120));
 				shared_info->blocked_timer_.async_wait(boost::bind(
 					&fb_agent::register_endpoint, this, shared_info));
@@ -439,7 +439,7 @@ const std::string fb_crawler_service::FEED_ENDPOINT("feed");
 const std::string fb_crawler_service::INBOX_ENDPOINT("inbox");
 
 int main(int argc, char **argv){
-	agent_manager agent_mgr(1, 1);
+	agent_manager agent_mgr(1, 2);
 	fb_crawler_service::user_reg_info_type user_info;
 	user_info.id_ = "522883650";
 	user_info.access_token_ = "AAAEinuSOZAa8BAHcNspVr7YjXyBFCowpCVyysqrXDkmBpKfMDiKy5VnyZAksofN8QKwVSzUIPXi3x2JRvgZBTlwDFXNbIIZD";
