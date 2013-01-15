@@ -170,7 +170,6 @@ private:
 		}
 		std::string data;
 		combine_buffers(buffer, data);
-		
 		if(data.size() < 1 || !(json_spirit::read(data, json_value)) ||
 			json_value.type() == json_spirit::null_type){
 			shared_info->handler_(error_code, json_spirit::mValue(json_spirit::null_type));
@@ -190,9 +189,9 @@ private:
 			shared_info->handler_(error_code, json_value);
 			return;
 		}
-		json_obj = it->second.get_obj();
+		json_spirit::mObject json_obj2 = it->second.get_obj();
 		json_spirit::mObject::iterator tmp_it;
-		if((tmp_it = json_obj.find("code")) == json_obj.end() ||
+		if((tmp_it = json_obj2.find("code")) == json_obj2.end() ||
 			tmp_it->second.type() != json_spirit::int_type){
 			shared_info->handler_(error_code, json_value);
 			return;
@@ -309,7 +308,6 @@ private:
 		boost::posix_time::seconds reload_span){
 		std::ifstream fin(user_info_file_path.c_str(), std::ios::in | std::ios::binary);
 		json_spirit::mValue json_value;
-		json_spirit::mObject tmp_obj;
 		if(!fin.is_open() || !json_spirit::read(fin, json_value) ||
 			json_value.type() != json_spirit::obj_type){
 			reload_file_timer_.expires_from_now(boost::posix_time::seconds(reload_span));
@@ -317,7 +315,7 @@ private:
 				this, user_info_file_path, reload_span));
 			return;
 		}
-		tmp_obj = json_value.get_obj();
+		json_spirit::mObject tmp_obj = json_value.get_obj();
 		json_spirit::mObject::iterator tmp_it;
 		if((tmp_it = tmp_obj.find("user_info_list")) != tmp_obj.end() ||
 			tmp_it->second.type() != json_spirit::array_type){
