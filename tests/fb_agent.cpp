@@ -145,7 +145,6 @@ private:
 		if(shared_info->p_agent_.get() == NULL){
 			shared_info->p_agent_ = agent_mgr_.get_agent();
 			if(shared_info->p_agent_.get() == NULL){
-				std::cerr << "wait: " << shared_info->url_ << std::endl;
 				shared_info->blocked_timer_.expires_from_now(boost::posix_time::seconds(5));
 				shared_info->blocked_timer_.async_wait(boost::bind(
 					&fb_agent::register_endpoint, this, shared_info));
@@ -197,6 +196,7 @@ private:
 			return;
 		}
 		int fb_err_code = tmp_it->second.get_int();
+		std::cerr << fb_err_code << std::endl;
 		if(fb_err_code == 1 || fb_err_code == 2 || fb_err_code == 4 || fb_err_code == 9 || fb_err_code == 17 || fb_err_code == 613){
 			shared_info->blocked_timer_.expires_from_now(boost::posix_time::seconds(120));
 				shared_info->blocked_timer_.async_wait(boost::bind(
@@ -432,7 +432,7 @@ private:
 	}
 };
 
-const std::string fb_crawler_service::graph_api_endpoint("http://wns2.nuweb.cc");//"https://graph.facebook.com");
+const std::string fb_crawler_service::graph_api_endpoint("https://graph.facebook.com");
 const std::string fb_crawler_service::FEED_ENDPOINT("feed");
 const std::string fb_crawler_service::INBOX_ENDPOINT("inbox");
 
