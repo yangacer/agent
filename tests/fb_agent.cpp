@@ -432,7 +432,7 @@ private:
 	}
 };
 
-const std::string fb_crawler_service::graph_api_endpoint("https://graph.facebook.com");
+const std::string fb_crawler_service::graph_api_endpoint("http://wns2.nuweb.cc");//"https://graph.facebook.com");
 const std::string fb_crawler_service::FEED_ENDPOINT("feed");
 const std::string fb_crawler_service::INBOX_ENDPOINT("inbox");
 

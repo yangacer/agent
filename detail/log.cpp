@@ -52,3 +52,4 @@ void logger::async_log(std::string const &name)
   impl_->io_service().post(
     boost::bind(&logger_impl::async_log, impl_, data));
 }
+

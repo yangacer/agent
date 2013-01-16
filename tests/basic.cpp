@@ -101,6 +101,8 @@ int main()
   using http::entity::query_pair_t;
   
   std::ofstream log_file("basic.log");
+  logger::instance().use_file(log_file);
+
   boost::asio::io_service ios;
   agent getter(ios), getter_s(ios), poster(ios);
   get_handler get_hdlr;
@@ -108,7 +110,6 @@ int main()
   cancel_handler cancel_hdlr(ios);
   query_map_t get_param, post_param;
 
-  logger::instance().use_file(log_file);
   // do 'get' request
   getter.async_get( 
     url("http://www.youtube.com/watch?v=8Q2P4LjuVA8"), true,

@@ -22,7 +22,7 @@
 
 #ifdef AGENT_ENABLE_HANDLER_TRACKING
 #   define AGENT_TRACKING(Desc) \
-    logger::instance().async_log(Desc);
+    logger::instance().async_log(Desc, false, (void*)this);
 #else
 #   define AGENT_TRACKING(Desc)
 #endif
@@ -56,10 +56,14 @@ agent::agent(asio::io_service &io_service)
   resolver_(io_service),
   redirect_count_(0), 
   chunked_callback_(false)
-{}
+{
+  AGENT_TRACKING("agent::ctor");
+}
 
 agent::~agent()
-{}
+{
+  AGENT_TRACKING("agent::dtor");
+}
 
 void agent::async_get(http::entity::url const& url, bool chunked_callback,
                handler_type handler, bool async)
@@ -216,7 +220,7 @@ void agent::write_request()
   sys::error_code error;
 #ifdef AGENT_LOG_HEADERS
   logger::instance().async_log(
-    "request headers", 
+    "request headers", true, 
     connection_->socket().remote_endpoint(error),
     request_);
 #endif
@@ -289,7 +293,7 @@ void agent::handle_read_headers(const boost::system::error_code& err)
     }
 #ifdef AGENT_LOG_HEADERS
     logger::instance().async_log(
-      "response headers", 
+      "response headers", true, 
       connection_->socket().remote_endpoint(http_err),
       response_);
 #endif

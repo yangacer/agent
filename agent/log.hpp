@@ -17,14 +17,13 @@ public:
   ~logger();
   static logger& instance();
   void use_file(std::ostream &os);
-
   void async_log(std::string const &name);
 
   template<typename StreamableObject>
-  void async_log(std::string const &name, StreamableObject const &o);
+  void async_log(std::string const &name, bool block, StreamableObject const &o);
 
   template<typename S1, typename S2>
-  void async_log(std::string const &name, S1 const &o1, S2 const &o2); 
+  void async_log(std::string const &name, bool block, S1 const &o1, S2 const &o2); 
 private:
   logger();
   static std::unique_ptr<logger> instance_;

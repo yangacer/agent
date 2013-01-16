@@ -13,7 +13,7 @@
 #ifdef AGENT_ENABLE_HANDLER_TRACKING
 #include "agent/log.hpp"
 #   define AGENT_TRACKING(Desc) \
-    logger::instance().async_log(Desc);
+    logger::instance().async_log(Desc, false, this);
 #else
 #   define AGENT_TRACKING(Desc)
 #endif
