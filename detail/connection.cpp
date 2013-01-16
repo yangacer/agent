@@ -90,8 +90,8 @@ void connection::handle_secured_connect(
       asio::ssl::stream_base::client, 
       GENERIC_BIND_(&connection::handle_connect));
     
-    // SET_TIMER_(session.quality_config.connect(), 
-               // &connection::handle_connect_timeout);
+    SET_TIMER_(session.quality_config.connect(), 
+                &connection::handle_connect_timeout);
   } else {
     io_service_.post(boost::bind(session.connect_handler, err));
   }
@@ -210,7 +210,6 @@ void connection::handle_connect_timeout(
     AGENT_TRACKING("connection::handle_connect_timeout");
     sys::error_code ec(sys::errc::timed_out, sys::system_category());
     close();
-    io_service_.post(boost::bind(session.connect_handler, ec));
   } 
 }
 
@@ -222,6 +221,5 @@ void connection::handle_io_timeout(
     AGENT_TRACKING("connection::handle_io_timeout");
     sys::error_code ec(sys::errc::stream_timeout, sys::system_category());
     close();
-    io_service_.post(boost::bind(session.io_handler, ec, 0));
   }
 }
