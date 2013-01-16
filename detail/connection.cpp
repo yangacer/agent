@@ -90,8 +90,8 @@ void connection::handle_secured_connect(
       asio::ssl::stream_base::client, 
       GENERIC_BIND_(&connection::handle_connect));
     
-    SET_TIMER_(session.quality_config.connect(), 
-               &connection::handle_connect_timeout);
+    // SET_TIMER_(session.quality_config.connect(), 
+               // &connection::handle_connect_timeout);
   } else {
     io_service_.post(boost::bind(session.connect_handler, err));
   }
