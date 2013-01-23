@@ -69,7 +69,6 @@ void agent::async_get(http::entity::url const& url, bool chunked_callback,
                handler_type handler, bool async)
 {
   if( async ) {
-    // XXX Parameter will missing after posted
     typedef void(agent::*mem_fn_type)(
       http::entity::url const&, bool, handler_type, bool);
     io_service_.post(
@@ -261,7 +260,6 @@ void agent::handle_read_status_line(const boost::system::error_code& err)
     // Check that response is OK.
     auto beg(asio::buffers_begin(session_->io_buffer.data())), 
          end(asio::buffers_end(session_->io_buffer.data()));
-    // XXX Ookon site (redirection) causes this parsing failed
     if(!http::parser::parse_response_first_line(beg, end, response_)){
       http_err.assign(sys::errc::bad_message, sys::system_category());
       notify_error(http_err);
@@ -329,20 +327,18 @@ void agent::diagnose_transmission()
       notify_header(sys::error_code());
       read_chunk();
     }
-  } else {
+  } else { 
     if(npos != (header = FIND_HEADER_("Content-Length"))) {
       expected_size_ = header->value_as<boost::int64_t>();
-      if(0 == expected_size_ || 
-         expected_size_ == session_->io_buffer.size()) 
-      {
-        notify_header(sys::error_code());
-        notify_error(asio::error::eof);
-        return;
-      }  
-    } 
-    current_size_ = session_->io_buffer.size();
+    }
+    assert(expected_size_ >= session_->io_buffer.size());
+    expected_size_ -= session_->io_buffer.size();
     notify_header(sys::error_code());
-    read_body();
+    if( expected_size_ ) {
+      read_body();
+    } else {
+      notify_error(asio::error::eof);
+    }
   }
 }
 
@@ -364,7 +360,6 @@ void agent::handle_read_chunk(boost::system::error_code const& err)
   using namespace std;
   
   AGENT_TRACKING("agent::handle_read_chunk");
-  // XXX It seems 0\r\n is left in buffer
   if(!err) {
     while(session_->io_buffer.size() ) {
       if( expected_size_ ) {
@@ -424,14 +419,14 @@ void agent::handle_read_body(
   boost::system::error_code const &err, boost::uint32_t length)
 {
   AGENT_TRACKING("agent::handle_read_body");
-  current_size_ += length;
-  if (!err && current_size_ != expected_size_) {
+  expected_size_ -= length;
+  if (!err && expected_size_) {
     if( chunked_callback_) 
       notify_chunk(err);
     read_body();
   } else {
     sys::error_code http_err = err;
-    if( current_size_ == expected_size_ )
+    if( 0 == expected_size_ )
       http_err = asio::error::eof;
     notify_error(http_err);
   }
@@ -519,12 +514,7 @@ void agent::notify_error(boost::system::error_code const &err)
   auto connect_policy = http::find_header(request_.headers, "Connection");
   
   if(!is_redirecting_) {
-    char const *data = (session_) ? 
-      asio::buffer_cast<char const*>(session_->io_buffer.data()) : NULL;
-    boost::uint32_t size = (data) ? session_->io_buffer.size() : 0;
-
-    asio::const_buffers_1 chunk(data,size);
-    (*handler_)(err, request_, response_, chunk);
+    (*handler_)(err, request_, response_, session_->io_buffer.data());
     if( connect_policy->value == "close" )
       connection_.reset();
     session_.reset();

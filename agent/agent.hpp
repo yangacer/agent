@@ -70,7 +70,6 @@ private:
   bool            chunked_callback_;
   handler_ptr     handler_;
   boost::int64_t  expected_size_;
-  boost::int64_t  current_size_;
   bool            is_canceled_;
   bool            is_redirecting_;
 };

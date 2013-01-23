@@ -3,6 +3,11 @@
 #include <boost/iostreams/categories.hpp>  // source_tag
 #include <boost/iostreams/positioning.hpp>
 
+#ifdef _WIN32
+#pragma warning ( push )
+#pragma warning ( disable : 4244 )
+#endif 
+
 template<typename Container>
 class container_device {
 public:
@@ -77,3 +82,6 @@ private:
 };
 
 
+#ifdef _WIN32
+#pragma warning ( pop )
+#endif
