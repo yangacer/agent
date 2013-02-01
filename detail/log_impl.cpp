@@ -45,11 +45,10 @@ void logger_impl::use_file(std::ostream &os)
   os_.reset(new std::ostream(os.rdbuf()));
 }
 
-void logger_impl::async_log(boost::shared_ptr<std::string> data)
+void logger_impl::async_log(std::string const &data)
 {
   if(!os_.get()) return;
-  (*os_) << *data ;
-  data.reset();
+  (*os_) << data ;
   os_->flush();
 }
 

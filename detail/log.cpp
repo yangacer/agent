@@ -45,10 +45,10 @@ void logger::use_file(std::ostream &os)
 
 void logger::async_log(std::string const &name)
 {
-  boost::shared_ptr<std::string> data(new std::string);
-  ref_str_stream rss(*data);
+  std::string data;
+  ref_str_stream rss(data);
   rss << "---- [" << timestamp() << "] " << name << "\n" << std::flush;
-  assert(data->size());
+  assert(data.size());
   impl_->io_service().post(
     boost::bind(&logger_impl::async_log, impl_, data));
 }

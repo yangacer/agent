@@ -15,7 +15,7 @@ public:
   void destroy();
   boost::asio::io_service& io_service();
   void use_file(std::ostream &os);
-  void async_log(boost::shared_ptr<std::string> data);
+  void async_log(std::string const &data);
   void run();
 private:
   bool running_;
