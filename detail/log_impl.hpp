@@ -14,13 +14,17 @@ public:
   logger_impl();
   void destroy();
   boost::asio::io_service& io_service();
-  void use_file(std::ostream &os);
+  void use_file(std::string const &filename, boost::uint32_t max_size);
   void async_log(std::string const &data);
   void run();
+protected:
+  void rotate();
 private:
-  bool running_;
   boost::mutex mutex_;
   boost::mutex work_mutex_;
+  std::string file_;
+  boost::uint32_t max_size_;
+  int generation_;
   boost::shared_ptr<boost::asio::io_service> io_service_;
   boost::shared_ptr<boost::thread> thread_;
   boost::shared_ptr<std::ostream> os_;

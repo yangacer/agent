@@ -37,10 +37,10 @@ logger &logger::instance()
   return *instance_;
 }
 
-void logger::use_file(std::ostream &os)
+void logger::use_file(std::string const &filename, boost::uint32_t max_size)
 {
   impl_->io_service().post(
-    boost::bind(&logger_impl::use_file, impl_, boost::ref(os)));
+    boost::bind(&logger_impl::use_file, impl_, filename, max_size));
 }
 
 void logger::async_log(std::string const &name)

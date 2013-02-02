@@ -16,7 +16,7 @@ class logger
 public:
   ~logger();
   static logger& instance();
-  void use_file(std::ostream &os);
+  void use_file(std::string const& filename, boost::uint32_t max_size = 4 << 20);
   void async_log(std::string const &name);
 
   template<typename StreamableObject>

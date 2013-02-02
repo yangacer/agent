@@ -100,8 +100,7 @@ int main()
   using http::entity::query_map_t;
   using http::entity::query_pair_t;
   
-  std::ofstream log_file("basic.log");
-  logger::instance().use_file(log_file);
+  logger::instance().use_file("basic.log", 20 << 10);
 
   boost::asio::io_service ios;
   agent getter(ios), getter_s(ios), poster(ios);

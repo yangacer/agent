@@ -209,8 +209,7 @@ int main(int argc, char** argv)
 {
   asio::io_service ios;
   tube_agent ta(ios, 10);
-  std::ofstream log("tube.log"); 
-  logger::instance().use_file(log);
+  logger::instance().use_file("tube.log");
 
   ta.get("http://www.youtube.com/watch?v=NPoHPNeU9fc", "37");
 
