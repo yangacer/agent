@@ -34,7 +34,7 @@ public:
                   handler_type handler, 
                   bool async = true);
 
-  void async_cancel(bool async = true);
+  void async_abort(bool async = true);
   // TODO int speed() const;
   http::request &request();
   boost::asio::io_service& io_service();
@@ -70,7 +70,6 @@ private:
   bool            chunked_callback_;
   handler_ptr     handler_;
   boost::int64_t  expected_size_;
-  bool            is_canceled_;
   bool            is_redirecting_;
 };
 // TODO upload handler (a.k.a. write handler)

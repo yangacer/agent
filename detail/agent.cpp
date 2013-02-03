@@ -121,14 +121,17 @@ void agent::async_post(http::entity::url const &url,
   start_op(url.host, determine_service(url), handler);
 }
 
-void agent::async_cancel(bool async)
+void agent::async_abort(bool async)
 {
-  if(async) {
-    io_service_.post(
-      boost::bind(&agent::async_cancel, this, false));
+  if(async ) {
+    if(connection_ && connection_->is_open()) {
+      io_service_.post(
+        boost::bind(&agent::async_abort, this, false));
+    }
+    return;
   }
-  AGENT_TRACKING("agent::async_cancel");
-  is_canceled_ = true;
+  AGENT_TRACKING("agent::async_abort");
+  connection_->close();
 }
 
 http::request &agent::request()
@@ -164,7 +167,6 @@ void agent::start_op(
   AGENT_TRACKING("agent::start_op");
 
   // TODO global management of connection
-  is_canceled_ = false;
   is_redirecting_ = false;
   response_.clear();
   handler_.reset(new handler_type(handler));
@@ -330,6 +332,10 @@ void agent::diagnose_transmission()
   } else { 
     if(npos != (header = FIND_HEADER_("Content-Length"))) {
       expected_size_ = header->value_as<boost::int64_t>();
+    } else {
+      if( npos != (header = FIND_HEADER_("Connection")) &&
+          header->value == "close")
+        expected_size_ = -1;
     }
     assert(expected_size_ >= session_->io_buffer.size());
     expected_size_ -= session_->io_buffer.size();
@@ -344,12 +350,10 @@ void agent::diagnose_transmission()
 
 void agent::read_chunk()
 {
-  if(!is_canceled_) {
   AGENT_TRACKING("agent::read_chunk");
-    session_->io_handler = 
-      boost::bind(&agent::handle_read_chunk, this, asio_ph::error);
-    connection_->read_some(1, *session_);
-  }
+  session_->io_handler = 
+    boost::bind(&agent::handle_read_chunk, this, asio_ph::error);
+  connection_->read_some(1, *session_);
 }
 
 void agent::handle_read_chunk(boost::system::error_code const& err)
@@ -401,18 +405,22 @@ void agent::handle_read_chunk(boost::system::error_code const& err)
     } // while there are buffered data
     read_chunk();
   } else {
-    notify_error(err);
+    if( connection_ && !connection_->is_open() && 
+        err == asio::error::bad_descriptor ) 
+    {
+      notify_error(asio::error::operation_aborted);
+    } else {
+      notify_error(err);
+    }
   }
 }
 
 void agent::read_body() 
 {
-  if(!is_canceled_ ) {
   AGENT_TRACKING("agent::read_body");
-    session_->io_handler = 
-      boost::bind(&agent::handle_read_body, this, _1, _2);
-    connection_->read_some(1, *session_);
-  }
+  session_->io_handler = 
+    boost::bind(&agent::handle_read_body, this, _1, _2);
+  connection_->read_some(1, *session_);
 }
 
 void agent::handle_read_body(
@@ -425,10 +433,15 @@ void agent::handle_read_body(
       notify_chunk(err);
     read_body();
   } else {
-    sys::error_code http_err = err;
-    if( 0 == expected_size_ )
-      http_err = asio::error::eof;
-    notify_error(http_err);
+    if( err == asio::error::eof || 0 == expected_size_ ) {
+      notify_error(asio::error::eof);
+    } else if( connection_ && !connection_->is_open() && 
+             err == asio::error::bad_descriptor) 
+    {
+      notify_error(asio::error::operation_aborted);
+    } else {
+      notify_error(err);
+    }
   }
 }
 
@@ -491,7 +504,6 @@ void agent::notify_header(boost::system::error_code const &err)
   AGENT_TRACKING("agent::notify_header");
   if(!is_redirecting_) {
     (*handler_)(err, request_, response_, asio::const_buffers_1(0,0));
-    if(is_canceled_) handler_.reset();
   }
 }
 
@@ -503,7 +515,6 @@ void agent::notify_chunk(boost::system::error_code const &err, boost::uint32_t l
   if(!is_redirecting_) {
     asio::const_buffers_1 chunk(data,size);
     (*handler_)(err, request_, response_, chunk);
-    if(is_canceled_) handler_.reset();
   }
   session_->io_buffer.consume(size);
 }

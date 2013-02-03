@@ -2,6 +2,7 @@
 #include <cassert>
 #include <fstream>
 #include <boost/bind.hpp>
+#include <boost/system/error_code.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/thread.hpp>
 #include "agent/agent.hpp"
@@ -24,8 +25,13 @@ void write_buffers_to_stdout(boost::asio::const_buffers_1 buffers)
 struct cancel_handler
 {
   cancel_handler(boost::asio::io_service &ios)
-    : agent_(ios), issue_canceled(false)
+    : issue_canceled(false), agent_(ios)
   {}
+
+  ~cancel_handler()
+  {
+    assert(issue_canceled == true);
+  }
 
   void get(std::string const& url) 
   {
@@ -40,17 +46,16 @@ struct cancel_handler
     http::response const &resp,
     boost::asio::const_buffers_1 buffers)
   {
-    if(!issue_canceled) 
-      issue_canceled = true;
-    else
-      assert(false && "cancel failed");
-
-    agent_.async_cancel();
-    if(ec) {
-      std::cerr << "cancel_agent: " << ec.message() << "\n";
+    namespace error = boost::asio::error;
+    if(!ec) {
+      agent_.async_abort();
+    } else if (ec == error::operation_aborted) {
+      // agent is not aborted successfully until now
+      issue_canceled = true; 
+    } else {
+      std::cerr << "cancel_handler: " << ec.message() << "\n";
     }
   }
-
   bool issue_canceled;
   agent agent_;
 };

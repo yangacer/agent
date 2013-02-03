@@ -153,7 +153,6 @@ void connection::handle_read(
     session_type &session)
 {
   AGENT_TRACKING("connection::handle_read");
-  if(!is_open()) return;
   boost::system::error_code err_ = err;
   bool is_ssl_short_read_error_ = 
     (err.category() == boost::asio::error::ssl_category &&
@@ -188,7 +187,6 @@ void connection::handle_write(
     session_type &session)
 {
   AGENT_TRACKING("connection::handle_write");
-  if(!is_open()) return;
   session.timer.cancel();
   io_service_.post(
     boost::bind(session.io_handler, err, length));
@@ -200,7 +198,12 @@ connection::socket() {  return socket_; }
 bool connection::is_open() const
 {  return socket_.is_open(); }
 
-void connection::close() {  socket_.close(); }
+void connection::close() 
+{ 
+  sys::error_code ec;
+  socket_.shutdown(tcp::socket::shutdown_both, ec);
+  socket_.close(ec); 
+}
 
 void connection::handle_connect_timeout(
   boost::system::error_code const &err,
