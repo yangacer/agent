@@ -321,6 +321,8 @@ void agent::diagnose_transmission()
   is_redirecting_ = 
     response_.status_code >= 300 && response_.status_code < 400;
 
+  // TODO Content-Range handling
+  
   if(npos != (header = FIND_HEADER_("Transfer-Encoding"))) {
     if( !chunked_callback_ ) {
       // XXX Sorry for this.
@@ -335,7 +337,7 @@ void agent::diagnose_transmission()
     } else {
       if( npos != (header = FIND_HEADER_("Connection")) &&
           header->value == "close")
-        expected_size_ = -1;
+        expected_size_ = std::numeric_limits<boost::uint64_t>::max();
     }
     assert(expected_size_ >= session_->io_buffer.size());
     expected_size_ -= session_->io_buffer.size();
@@ -405,6 +407,8 @@ void agent::handle_read_chunk(boost::system::error_code const& err)
     } // while there are buffered data
     read_chunk();
   } else {
+    // XXX This case is caused by user manually abort
+    // agent operation.
     if( connection_ && !connection_->is_open() && 
         err == asio::error::bad_descriptor ) 
     {
@@ -435,11 +439,15 @@ void agent::handle_read_body(
   } else {
     if( err == asio::error::eof || 0 == expected_size_ ) {
       notify_error(asio::error::eof);
-    } else if( connection_ && !connection_->is_open() && 
+    } 
+    // XXX This case is caused by user manually abort
+    // agent operation.
+    else if( connection_ && !connection_->is_open() && 
              err == asio::error::bad_descriptor) 
     {
       notify_error(asio::error::operation_aborted);
-    } else {
+    } 
+    else {
       notify_error(err);
     }
   }

@@ -1,6 +1,6 @@
 #include "agent/timeout_config.hpp"
 
-const timeout_config timeout_config::default_config(5, 1, 1);
+const timeout_config timeout_config::default_config(5, 2, 2);
 
 timeout_config::timeout_config(int c, int wk, int rk)
   : conn_(c), wrt_kb_(wk), rd_kb_(rk)

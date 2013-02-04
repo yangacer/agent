@@ -143,8 +143,8 @@ void connection::read_until(char const* pattern, boost::uint32_t at_most, sessio
       IO_BIND_(&connection::handle_read, 0));
   }
   // FIXME this timer can not be canceled in time
-  //SET_TIMER_(timeout_config_.read_num_bytes(at_most),
-  //           &connection::handle_io_timeout);
+  SET_TIMER_(session.quality_config.read_num_bytes(at_most),
+             &connection::handle_io_timeout);
 }
 
 void connection::handle_read(

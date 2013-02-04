@@ -146,9 +146,10 @@ protected:
         total_ = h->value_as<size_t>();
       } else {
         received_ += size;
-        std::cout.width(12);
-        std::cout.fill(' ');
-        std::cout << "\033[F\033[J" << (100*received_)/total_ << "%\n";
+        // std::cout.width(12);
+        // std::cout.fill(' ');
+        std::cout << "\033[F\033[J" // << received_ << "/" << total_ << "\n";
+          <<  (received_/100)/(total_/10000) << "%\n";
           //<< (100*received_)/(double)total_ << " %\n";
       }
     } else if(eof == ec) {
@@ -164,6 +165,7 @@ protected:
     } else {
       std::cerr << "handle_video error: ec(" << ec.message() << 
         "), status_code(" << resp.status_code << ")\n";
+      delayed_get();
     }
   }
 

@@ -69,7 +69,7 @@ private:
   unsigned char   redirect_count_;
   bool            chunked_callback_;
   handler_ptr     handler_;
-  boost::int64_t  expected_size_;
+  boost::uint64_t expected_size_;
   bool            is_redirecting_;
 };
 // TODO upload handler (a.k.a. write handler)
