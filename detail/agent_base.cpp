@@ -19,7 +19,7 @@
 #include "connection.hpp"
 #include "session.hpp"
 
-#define USER_AGENT_STR "OokonHTTPAgent Version/"AGENT_VERSION
+#define USER_AGENT_STR "OokonHTTPAgent Version"
 
 #ifdef AGENT_ENABLE_HANDLER_TRACKING
 #   define AGENT_TRACKING(Desc) \
@@ -45,7 +45,12 @@ setup_default_headers(std::vector<http::entity::field> &headers)
   header = http::get_header(headers, "Connection");
   if(header->value.empty()) header->value = "keep-alive";
   header = http::get_header(headers, "User-Agent");
-  if(header->value.empty()) header->value = USER_AGENT_STR;
+  if(header->value.empty()){
+    std::string ustr = USER_AGENT_STR;
+    ustr += "/";
+    ustr += agent_version();
+    header->value = ustr;
+  }
 }
 
 namespace asio = boost::asio;
