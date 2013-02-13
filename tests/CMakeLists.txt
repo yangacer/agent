@@ -1,6 +1,7 @@
 
 set( test_targets 
-     basic log io_service_pool redirect)
+     basic log io_service_pool redirect 
+     range_request)
 
 set( example_targets tube )
 

@@ -66,7 +66,7 @@ agent_base::~agent_base()
 }
 
 void agent_base::async_get(http::entity::url const& url, bool chunked_callback,
-               handler_type handler)
+                           handler_type handler)
 {
   init("GET", url);
   std::ostream os(&session_->io_buffer);
@@ -75,6 +75,29 @@ void agent_base::async_get(http::entity::url const& url, bool chunked_callback,
   os.flush();
   os << request_;
   start_op(url.host, determine_service(url), handler);
+}
+
+
+void agent_base::async_get(http::entity::url const &url, bool chunked_callback,
+                           boost::uint64_t offset, boost::uint64_t size,
+                           handler_type handler)
+{
+  using http::entity::field;
+
+  init("GET", url);
+  std::ostream os(&session_->io_buffer);
+  std::stringstream range;
+  range << "bytes=";
+  if( offset != -1) range << offset;
+  range << "-";
+  if(size != -1 ) range << (offset + size -1);
+
+  chunked_callback_ = chunked_callback;
+  request_.headers << field("Range", range.str());
+  os.flush();
+  os << request_;
+  start_op(url.host, determine_service(url), handler);
+
 }
 
 void agent_base::async_post(http::entity::url const &url, 

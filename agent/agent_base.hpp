@@ -24,8 +24,12 @@ public:
   
   agent_base(boost::asio::io_service &io_service);
   ~agent_base();
-  
+
   void async_get(http::entity::url const &url, bool chunked_callback,
+                 handler_type handler);
+
+  void async_get(http::entity::url const &url, bool chunked_callback,
+                 boost::uint64_t offset, boost::uint64_t size,
                  handler_type handler);
 
   void async_post(http::entity::url const &url, 
