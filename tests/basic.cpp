@@ -7,6 +7,7 @@
 #include <boost/thread.hpp>
 #include "agent/agent.hpp"
 #include "agent/log.hpp"
+#include "agent/version.hpp"
 
 void write_buffers_to_stdout(boost::asio::const_buffers_1 buffers)
 {
@@ -106,6 +107,7 @@ int main()
   using http::entity::query_pair_t;
   
   logger::instance().use_file("basic.log", 20 << 10);
+  logger::instance().async_log("version: ", false, AGENT_VERSION_FULL);
 
   boost::asio::io_service ios;
   agent getter(ios), getter_s(ios), poster(ios);

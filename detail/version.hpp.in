@@ -1,0 +1,7 @@
+#ifndef AGENT_VERSION_HPP_
+#define AGENT_VERSION_HPP_
+
+#define AGENT_VERSION "@VERSION@"
+#define AGENT_VERSION_FULL "@VERSION_FULL@"
+
+#endif
