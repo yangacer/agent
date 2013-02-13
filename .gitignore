@@ -1,3 +1,5 @@
+build
 debug
 release
+detail/version.cpp
 *.swp
