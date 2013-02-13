@@ -3,8 +3,22 @@ project(Agent CXX)
 
 list (APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake_mod)
 
+include (GetGitRevisionDescription)
 include (use_c++11)
 include (disable_useless_vc_warning)
+
+git_describe ( VERSION --tags --long)
+
+#parse the version information into pieces.
+string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" VERSION_MAJOR "${VERSION}" )
+string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" VERSION_MINOR "${VERSION}" )
+string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" VERSION_PATCH "${VERSION}")
+string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.[0-9]+(.*)" "\\1" VERSION_SHA1 "${VERSION}")
+set(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
+set(VERSION_FULL "${VERSION}${VERSION_SHA1}")
+
+configure_file( detail/version.cpp.in ${PROJECT_SOURCE_DIR}/detail/version.cpp )
+
 
 # TODO Enable dynamic linking in windows
 if(MSVC)
