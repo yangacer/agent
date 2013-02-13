@@ -6,6 +6,7 @@ set ( AGENT_SRC
   parser.cpp generator.cpp entity.cpp
   timeout_config.cpp
   connection.cpp
+  agent_base.cpp
   agent.cpp)
 
 
