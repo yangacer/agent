@@ -17,7 +17,7 @@ string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.[0-9]+(.*)" "\\1" VERSION_SHA1 "${VERS
 set(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 set(VERSION_FULL "${VERSION}${VERSION_SHA1}")
 
-configure_file( detail/version.hpp.in ${PROJECT_SOURCE_DIR}/agent/version.hpp )
+configure_file( detail/version.cpp.in ${PROJECT_SOURCE_DIR}/detail/version.cpp )
 
 
 # TODO Enable dynamic linking in windows
