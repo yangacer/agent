@@ -7,7 +7,7 @@
 #include <boost/spirit/include/karma_uint.hpp>
 #include <boost/spirit/include/karma_generate.hpp>
 #include <boost/spirit/include/support_ostream_iterator.hpp>
-#include "entity.hpp"
+#include "agent/entity.hpp"
 
 namespace http {
 namespace generator {

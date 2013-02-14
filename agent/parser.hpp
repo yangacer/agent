@@ -8,7 +8,7 @@
 #include <boost/spirit/include/qi_uint.hpp>
 #include <boost/spirit/include/qi_real.hpp>
 #include <boost/spirit/include/qi_parse.hpp>
-#include "entity.hpp"
+#include "agent/entity.hpp"
 
 namespace http {
 namespace parser {

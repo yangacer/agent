@@ -6,9 +6,9 @@
 #include <boost/function.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include "connection_fwd.hpp"
-#include "agent_handler_type.hpp"
-#include "entity.hpp"
+#include "agent/connection_fwd.hpp"
+#include "agent/agent_handler_type.hpp"
+#include "agent/entity.hpp"
 
 class session_type;
 

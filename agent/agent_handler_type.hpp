@@ -4,7 +4,7 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
-#include "entity.hpp"
+#include "agent/entity.hpp"
 
 typedef boost::function<
   void(

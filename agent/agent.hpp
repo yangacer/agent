@@ -1,7 +1,7 @@
 #ifndef AGENT_HPP_
 #define AGENT_HPP_
 
-#include "agent_base.hpp"
+#include "agent/agent_base.hpp"
 
 class agent
 : public agent_base

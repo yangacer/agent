@@ -7,7 +7,7 @@
 #include <map>
 #include <boost/variant.hpp>
 #include <boost/lexical_cast.hpp>
-#include "status_code.hpp"
+#include "agent/status_code.hpp"
  
 namespace http {
 namespace entity {

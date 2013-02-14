@@ -31,7 +31,6 @@ void io_service_pool::run(initiate_status status)
 {
   for(auto i=0u;i<io_services_.size();++i) {
     if(status == WITHOUT_WORK) {
-      //std::cerr << "Create io_service::work\n";
       work_ptr work(new asio::io_service::work(*(io_services_[i])));
       works_.push_back(work);
     }
