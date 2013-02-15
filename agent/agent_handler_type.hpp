@@ -11,7 +11,7 @@ typedef boost::function<
     boost::system::error_code const &,
     http::request const &,
     http::response const &, 
-    boost::asio::const_buffers_1 buffer)
+    boost::asio::const_buffer buffer)
   > agent_handler_type;
 
 #endif

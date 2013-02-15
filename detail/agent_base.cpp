@@ -520,7 +520,7 @@ void agent_base::notify_header(boost::system::error_code const &err)
 {
   AGENT_TRACKING("agent_base::notify_header");
   if(!is_redirecting_) {
-    (*handler_)(err, request_, response_, asio::const_buffers_1(0,0));
+    (*handler_)(err, request_, response_, asio::const_buffer());
   }
 }
 
@@ -530,7 +530,7 @@ void agent_base::notify_chunk(boost::system::error_code const &err, boost::uint3
   char const* data = asio::buffer_cast<char const*>(session_->io_buffer.data());
   boost::uint32_t size = std::min((size_t)length, session_->io_buffer.size());
   if(!is_redirecting_) {
-    asio::const_buffers_1 chunk(data,size);
+    asio::const_buffer chunk(data,size);
     (*handler_)(err, request_, response_, chunk);
   }
   session_->io_buffer.consume(size);
@@ -542,7 +542,9 @@ void agent_base::notify_error(boost::system::error_code const &err)
   auto connect_policy = http::find_header(request_.headers, "Connection");
   
   if(!is_redirecting_) {
-    (*handler_)(err, request_, response_, session_->io_buffer.data());
+    char const* data = asio::buffer_cast<char const*>(session_->io_buffer.data());
+    asio::const_buffer chunk(data, session_->io_buffer.size());
+    (*handler_)(err, request_, response_, chunk);
     if( connect_policy->value == "close" )
       connection_.reset();
     session_.reset();

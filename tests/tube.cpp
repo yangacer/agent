@@ -53,7 +53,7 @@ struct tube_agent
 protected:
   void handle_page(
     sys::error_code const& ec, http::request const& req,
-    http::response const &resp, asio::const_buffers_1 buffers)
+    http::response const &resp, asio::const_buffer buffer)
   {
     using std::cerr;
     using std::string;
@@ -62,7 +62,7 @@ protected:
     } else if(eof == ec) {
       if( 200 == resp.status_code ) {
         string url, signature;
-        if(get_link(buffers, itag_, url, signature)) {
+        if(get_link(buffer, itag_, url, signature)) {
           url.append("%26signature%3D").append(signature);
           auto beg(url.begin()), end(url.end());
           video_url_.clear();
@@ -71,9 +71,8 @@ protected:
                            bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
 
         } else {
-          auto beg(asio::buffers_begin(buffers)), 
-            end(asio::buffers_end(buffers));
-          std::cerr.write(&*beg, end - beg);
+          char const* data = asio::buffer_cast<char const*>(buffer);
+          std::cerr.write(data, asio::buffer_size(buffer));
           std::cerr << "\n---- no matched itag\n";
         }
       } else if(http::forbidden == resp.status_code) {
@@ -86,14 +85,15 @@ protected:
     }
   }
 
-  bool get_link(asio::const_buffers_1 &buffers, std::string const &target_itag, 
+  bool get_link(asio::const_buffer &buffer, std::string const &target_itag, 
                 std::string &url, std::string &signature)
   {
     using namespace std;
 
-    auto beg(asio::buffers_begin(buffers)), 
-         end(asio::buffers_end(buffers));
-    decltype(beg) iter;
+    char const *beg(asio::buffer_cast<char const*>(buffer));
+    char const *end(beg + asio::buffer_size(buffer));
+    char const *iter;
+    
     string 
       pattern("\"url_encoded_fmt_stream_map\": \""),
       delim("\\u0026");
@@ -136,9 +136,9 @@ protected:
 
   void handle_video(
     sys::error_code const& ec, http::request const& req,
-    http::response const &resp, asio::const_buffers_1 buffers)
+    http::response const &resp, asio::const_buffer buffer)
   {
-    size_t size = asio::buffer_size(buffers);
+    size_t size = asio::buffer_size(buffer);
     if(!ec && resp.status_code == 200) {
       if( size == 0 ) {
         auto h = http::find_header(resp.headers, "Content-Length");

@@ -23,12 +23,12 @@ struct get_last_half
     boost::system::error_code const &ec,
     http::request const &req,
     http::response const &resp,
-    boost::asio::const_buffers_1 buffers)
+    boost::asio::const_buffer buffer)
   {
     using namespace boost::asio;
     if(!ec || ec == boost::asio::error::eof) {
-      char const* data = buffer_cast<char const*>(*buffers.begin());
-      MD5_Update(&md5_, data, buffer_size(*buffers.begin()));
+      char const* data = buffer_cast<char const*>(buffer);
+      MD5_Update(&md5_, data, buffer_size(buffer));
       //std::cout.write(data, buffer_size(*buffers.begin()));
     } else {
       

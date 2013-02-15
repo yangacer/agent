@@ -10,7 +10,7 @@ struct get_handler
     boost::system::error_code const & ec,
     http::request const &req,
     http::response const& resp,
-    boost::asio::const_buffers_1 buffer)
+    boost::asio::const_buffer buffer)
   {
     if(!ec) {
 

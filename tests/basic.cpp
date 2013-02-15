@@ -44,7 +44,7 @@ struct cancel_handler
     boost::system::error_code const &ec,
     http::request const &req,
     http::response const &resp,
-    boost::asio::const_buffers_1 buffers)
+    boost::asio::const_buffer /* dummy */)
   {
     namespace error = boost::asio::error;
     if(!ec) {
@@ -66,7 +66,7 @@ struct get_handler
     boost::system::error_code const &ec,
     http::request const &req,
     http::response const &resp,
-    boost::asio::const_buffers_1 buffers)
+    boost::asio::const_buffer /* dummy */)
   {
     using namespace boost::asio;
 
@@ -87,7 +87,7 @@ struct post_handler
     boost::system::error_code const &ec,
     http::request const &req,
     http::response const &resp,
-    boost::asio::const_buffers_1 buffers)
+    boost::asio::const_buffer /* dummy */)
   {
     using namespace boost::asio;
     if( boost::asio::error::eof == ec ) {
