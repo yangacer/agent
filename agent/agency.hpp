@@ -20,18 +20,18 @@ public:
                          handler_type handler);
   
   void async_reply_commit(http::request const &request, 
-                          session_token_type session_token, 
+                          session_token_type token, 
                           handler_type handler);
   
   void async_reply_commit(http::request const &request,
                           http::response const &response, 
-                          session_token_type session_token,
+                          session_ptr session,
                           handler_type handler);
 protected:
   virtual void notify(boost::system::error_code const &err,
                       http::request const &request,
                       boost::asio::io_service &io_service,
-                      connection_ptr connection,
+                      session_ptr session,
                       handler_type handler);
 };
 

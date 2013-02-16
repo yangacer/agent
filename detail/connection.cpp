@@ -37,10 +37,14 @@ connection::connection(
     resolver_(io_service), 
     socket_(io_service),
     ssl_short_read_error_(335544539)
-{}
+{
+  AGENT_TRACKING("connection::ctor");
+}
 
 connection::~connection()
-{}
+{
+  AGENT_TRACKING("connection::dtor");
+}
 
 boost::asio::io_service &connection::get_io_service()
 { return io_service_; }

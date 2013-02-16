@@ -46,6 +46,7 @@ agency_base::agency_base(std::string const &address, std::string const &port,
 agency_base::~agency_base()
 {
   AGENT_TRACKING("agency_base::dtor");
+  handlers_.clear();
 }
 
 void agency_base::set_handler(std::string const & uri_prefix, 
@@ -112,14 +113,12 @@ void agency_base::async_reply_commit(http::request const &request,
 
 void agency_base::async_reply_commit(http::request const &request,
                                      http::response const &response, 
-                                     session_token_type session_token,
+                                     session_ptr session,
                                      handler_type handler)
 {
   AGENT_TRACKING("agency_base::async_reply_commit");
-  connection_ptr conn = boost::static_pointer_cast<connection>(session_token);
-  auto i = sessions_.find(conn);
-  if(i == sessions_.end()) return;
-  auto &session = i->second;
+  connection_ptr conn = 
+    boost::static_pointer_cast<connection>(session->extra_context);
   auto req_connection_policy = http::find_header(request.headers, "Connection");
   
   std::ostream os(&session->io_buffer);
@@ -135,40 +134,42 @@ void agency_base::async_reply_commit(http::request const &request,
   logger::instance().async_log(
     "response headers", true,
     conn->socket().remote_endpoint(),
-    response);
+    cp);
 #endif
   session->io_handler = boost::bind(
-    &agency_base::handle_reply_commit, this, _1, request, session_token, handler);
+    &agency_base::handle_reply_commit, this, _1, request, session, handler);
   conn->write(*session);
 }
 
 
 void agency_base::handle_reply_commit(boost::system::error_code const &err, 
                                       http::request const &request,
-                                      session_token_type session_token,
+                                      session_ptr session,
                                       handler_type handler)
 {
   AGENT_TRACKING("agency_base::handle_reply_commit");
-  connection_ptr conn = boost::static_pointer_cast<connection>(session_token);
-  auto i = sessions_.find(conn);
-  if(i == sessions_.end()) return;
-  auto &session = i->second;
-  auto connection_policy = http::find_header(request.headers, "Connection");
-  if( connection_policy == request.headers.end() || 
-      connection_policy->value == "close" || 
-      connection_policy->value == "Close")
-  {
-    asio::io_service &ios = conn->get_io_service();
-    sessions_.erase(conn);
-    conn.reset();
-    notify(err, request, ios, conn, handler);
-  } else { 
-    // keep-alive
-    notify(err, request, conn->get_io_service(), conn, handler);
-    session->quality_config.read_kb(10);
-    start_read(session);
+  session->io_handler = io_handler_type();
+  if(!err) {
+    connection_ptr conn = 
+      boost::static_pointer_cast<connection>(session->extra_context);
+    auto connection_policy = http::find_header(request.headers, "Connection");
+    if( connection_policy == request.headers.end() || 
+        connection_policy->value == "close" || 
+        connection_policy->value == "Close")
+    {
+      asio::io_service &ios = conn->get_io_service();
+      session->extra_context.reset();
+      notify(err, request, ios, session, handler);
+    } else { 
+      // keep-alive
+      notify(err, request, conn->get_io_service(), session, handler);
+      session->quality_config.read_kb(10);
+      start_read(session);
+    }
+  } else {
+    session->extra_context.reset();
   }
-
+ 
 }
 
 void agency_base::start_accept()
@@ -188,9 +189,10 @@ void agency_base::handle_accept(boost::system::error_code const &err)
       connection::socket_type::keep_alive(true), ec);
     // create session
     if(!ec) {
-      auto &session = sessions_[connection_];
-      session.reset(new session_type(PICK_SERVICE));
+      session_ptr session(new session_type(connection_->get_io_service()));
       session->quality_config.read_kb(1);
+      session->extra_context = 
+        boost::static_pointer_cast<void>(connection_);
       start_read(session);
     }
   }
@@ -199,64 +201,72 @@ void agency_base::handle_accept(boost::system::error_code const &err)
 
 void agency_base::start_read(session_ptr session)
 {
+  AGENT_TRACKING("agency_base::start_read");
+  connection_ptr conn = 
+    boost::static_pointer_cast<connection>(session->extra_context);
   // read request (headers only)
   session->io_handler = boost::bind(
-    &agency_base::handle_read_request_line, this, _1, _2, connection_);
-  connection_->read_until("\r\n", 4096, *session);
+    &agency_base::handle_read_request_line, this, _1, _2, session);
+  conn->read_until("\r\n", 4096, *session);
 }
 
 void agency_base::handle_read_request_line(
   boost::system::error_code const &err, 
   boost::uint32_t length,
-  connection_ptr connection)
+  session_ptr session)
 {
   AGENT_TRACKING("agency_base::handle_read_request_line");
+  session->io_handler = io_handler_type();
   if(!err) {
-    auto &session = sessions_.at(connection);
+    session->io_handler = io_handler_type();
     auto beg(asio::buffers_begin(session->io_buffer.data())),
          end(asio::buffers_end(session->io_buffer.data())),
          orig = beg;
     http::request request;
-    if(!http::parser::parse_request_first_line(beg, end, request)) {
-      sessions_.erase(connection);
+    connection_ptr conn = 
+      boost::static_pointer_cast<connection>(session->extra_context);
+    if(!http::parser::parse_request_first_line(beg, end, request))
       return;
-    } 
     session->io_buffer.consume(beg - orig);
     session->io_handler = boost::bind(
-      &agency_base::handle_read_header_list, this, _1, _2, connection, request);
-    connection->read_until("\r\n\r\n", 4096, *session);   
+      &agency_base::handle_read_header_list, this, 
+      _1, _2, session, request);
+    conn->read_until("\r\n\r\n", 4096, *session);   
   } else {
-    sessions_.erase(connection);
+    session->extra_context.reset();
+    session.reset();
   }
 }
 
 void agency_base::handle_read_header_list(
   boost::system::error_code const &err, 
   boost::uint32_t length,
-  connection_ptr connection,
+  session_ptr session,
   http::request request)
 {
   AGENT_TRACKING("agency_base::handle_read_header_list");
+  session->io_handler = io_handler_type();
   if(!err) {
-    auto &session = sessions_.at(connection);
     auto beg(asio::buffers_begin(session->io_buffer.data())),
          end(asio::buffers_end(session->io_buffer.data())),
          orig = beg;
-    if(!http::parser::parse_header_list(beg, end, request.headers)) {
-      sessions_.erase(connection);
+    connection_ptr conn = 
+      boost::static_pointer_cast<connection>(session->extra_context);
+    if(!http::parser::parse_header_list(beg, end, request.headers)) 
       return;
-    }
     session->io_buffer.consume(beg - orig);
 #ifdef AGENT_AGENCY_LOG_HEADERS
   logger::instance().async_log(
     "request headers", true, 
-    connection->socket().remote_endpoint(), request);
+    conn->socket().remote_endpoint(), request);
 #endif
-    notify(err, request, connection->get_io_service(), connection, 
+    notify(err, request, conn->get_io_service(), session, 
            get_handler(request.query.path, request.method));
   } else {
-    sessions_.erase(connection);
+    session->extra_context.reset();
+    session.reset();
   }
+ 
 }
 
 void agency_base::handle_stop()

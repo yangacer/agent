@@ -7,11 +7,11 @@ set ( AGENT_SRC
   parser.cpp generator.cpp entity.cpp
   timeout_config.cpp
   connection.cpp
+  session.cpp
   agent_base.cpp
   agent.cpp
   agency_base.cpp
   agency.cpp)
-
 
 if(MSVC)
   set ( LIBS ${OPENSSL_LIBRARIES} ) #libeay32mt ssleay32mt Crypt32)

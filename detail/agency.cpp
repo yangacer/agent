@@ -1,6 +1,8 @@
 #include "agent/agency.hpp"
 #include <boost/ref.hpp>
+#include "agent/log.hpp"
 #include "connection.hpp"
+#include "session.hpp"
 
 // ---- fobidden handler ---
 
@@ -9,7 +11,7 @@ struct forbidden_handler
   void handle_request(boost::system::error_code const &err, 
                       http::request const & request,
                       agency &agency_, 
-                      session_token_type token)
+                      session_ptr session)
   {
     using http::entity::field;
 
@@ -17,15 +19,16 @@ struct forbidden_handler
       http::response::stock_response(http::status_type::forbidden);
     resp.headers << field("Content-Length", 0);
     agency_.async_reply_commit(
-      request, resp, token, 
+      request, resp, session, 
       boost::bind(&forbidden_handler::handle_commit, this, _1, _2, _3, _4));
   }
 
   void handle_commit(boost::system::error_code const &err, 
                      http::request const & request,
                      agency &agency_, 
-                     session_token_type token)
-  {}
+                     session_ptr session)
+  {
+  }
 
 };
 
@@ -65,29 +68,29 @@ void agency::async_reply_commit(http::request const &request,
 
 void agency::async_reply_commit(http::request const &request,
                                 http::response const &response, 
-                                session_token_type session_token,
+                                session_ptr session,
                                 handler_type handler)
 {
   typedef void(agency_base::*mem_fn_type)(
     http::request const&, http::response const &,
-    session_token_type, handler_type);
+    session_ptr, handler_type);
 
   connection_ptr conn = 
-    boost::static_pointer_cast<connection>(session_token);
+    boost::static_pointer_cast<connection>(session->extra_context);
 
   conn->get_io_service().post(boost::bind(
       (mem_fn_type)&agency_base::async_reply_commit, this, 
-      request, response, session_token, handler));
+      request, response, session, handler));
+
 }
 
 void agency::notify(boost::system::error_code const &err,
                     http::request const &request,
                     boost::asio::io_service &io_service,
-                    connection_ptr connection,
+                    session_ptr session,
                     handler_type handler)
 {
   io_service.post(
     boost::bind(handler,
-                err, request, boost::ref(*this),
-                boost::static_pointer_cast<void>(connection)));
+                err, request, boost::ref(*this), session));
 }
