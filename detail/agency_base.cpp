@@ -151,8 +151,6 @@ void agency_base::handle_reply_commit(boost::system::error_code const &err,
 void agency_base::start_accept()
 {
   connection_.reset(new connection(PICK_SERVICE));
-  connection_->socket().set_option(
-    connection::socket_type::keep_alive(true));
   acceptor_.async_accept(connection_->socket(),
                          boost::bind(&agency_base::handle_accept, this, _1));
 }
@@ -161,6 +159,8 @@ void agency_base::handle_accept(boost::system::error_code const &err)
 {
   if(!err) {
     boost::system::error_code ec;
+    connection_->socket().set_option(
+      connection::socket_type::keep_alive(true), ec);
     // create session
     if(!ec) {
       auto &session = sessions_[connection_];
