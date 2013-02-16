@@ -20,7 +20,8 @@ public:
   
   agency_base(std::string const &address, std::string const &port, 
               std::size_t thread_number);
-  
+  ~agency_base(); 
+
   void set_handler(std::string const &uri_prefix, std::string const &method, 
                    handler_type handler);
 

@@ -1,5 +1,6 @@
 #include "agent/agency.hpp"
 #include <boost/ref.hpp>
+#include "connection.hpp"
 
 // ---- fobidden handler ---
 
@@ -67,7 +68,16 @@ void agency::async_reply_commit(http::request const &request,
                                 session_token_type session_token,
                                 handler_type handler)
 {
-  
+  typedef void(agency_base::*mem_fn_type)(
+    http::request const&, http::response const &,
+    session_token_type, handler_type);
+
+  connection_ptr conn = 
+    boost::static_pointer_cast<connection>(session_token);
+
+  conn->get_io_service().post(boost::bind(
+      (mem_fn_type)&agency_base::async_reply_commit, this, 
+      request, response, session_token, handler));
 }
 
 void agency::notify(boost::system::error_code const &err,

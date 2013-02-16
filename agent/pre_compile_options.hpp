@@ -10,6 +10,9 @@
 // Log request and response body
 #define AGENT_LOG_BODY 
 
+// Log request and response headers
+#define AGENT_AGENCY_LOG_HEADERS
+
 // Maximum redirection times per request
 #define AGENT_MAXIMUM_REDIRECT_COUNT 5
 

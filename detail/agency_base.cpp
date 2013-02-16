@@ -5,8 +5,17 @@
 #include "connection.hpp"
 #include "session.hpp"
 #include "agent/parser.hpp"
+#include "agent/log.hpp"
+#include "agent/pre_compile_options.hpp"
 
 #define PICK_SERVICE (*io_service_pool_.get_io_service())
+
+#ifdef AGENT_ENABLE_HANDLER_TRACKING
+#   define AGENT_TRACKING(Desc) \
+    logger::instance().async_log(Desc, false, (void*)this);
+#else
+#   define AGENT_TRACKING(Desc)
+#endif
 
 namespace asio = boost::asio;
 
@@ -17,6 +26,7 @@ agency_base::agency_base(std::string const &address, std::string const &port,
   acceptor_( PICK_SERVICE ),
   handlers_()
 {
+  AGENT_TRACKING("agency_base::ctor");
   // setup signal handling
   signal_set_.add(SIGINT);
   signal_set_.add(SIGTERM);
@@ -31,6 +41,11 @@ agency_base::agency_base(std::string const &address, std::string const &port,
   acceptor_.listen();
 
   start_accept();
+}
+
+agency_base::~agency_base()
+{
+  AGENT_TRACKING("agency_base::dtor");
 }
 
 void agency_base::set_handler(std::string const & uri_prefix, 
@@ -60,7 +75,8 @@ agency_handler_type agency_base::get_handler(std::string const &uri,
                                              std::string const &method)
 {
   auto i = handlers_[method].lower_bound(uri);
-  if(0 == uri.find(i->first)) // matched
+  if(i != handlers_[method].end() &&
+     0 == uri.find(i->first)) // matched
     return i->second;
   else
     return handlers_["GET"]["_forbidden_"];
@@ -99,6 +115,7 @@ void agency_base::async_reply_commit(http::request const &request,
                                      session_token_type session_token,
                                      handler_type handler)
 {
+  AGENT_TRACKING("agency_base::async_reply_commit");
   connection_ptr conn = boost::static_pointer_cast<connection>(session_token);
   auto i = sessions_.find(conn);
   if(i == sessions_.end()) return;
@@ -114,7 +131,12 @@ void agency_base::async_reply_commit(http::request const &request,
     cp.headers << http::entity::field("Connection", "close");
   }
   os << cp;
-  
+#ifdef AGENT_AGENCY_LOG_HEADERS
+  logger::instance().async_log(
+    "response headers", true,
+    conn->socket().remote_endpoint(),
+    response);
+#endif
   session->io_handler = boost::bind(
     &agency_base::handle_reply_commit, this, _1, request, session_token, handler);
   conn->write(*session);
@@ -126,6 +148,7 @@ void agency_base::handle_reply_commit(boost::system::error_code const &err,
                                       session_token_type session_token,
                                       handler_type handler)
 {
+  AGENT_TRACKING("agency_base::handle_reply_commit");
   connection_ptr conn = boost::static_pointer_cast<connection>(session_token);
   auto i = sessions_.find(conn);
   if(i == sessions_.end()) return;
@@ -150,6 +173,7 @@ void agency_base::handle_reply_commit(boost::system::error_code const &err,
 
 void agency_base::start_accept()
 {
+  AGENT_TRACKING("agency_base::start_accept");
   connection_.reset(new connection(PICK_SERVICE));
   acceptor_.async_accept(connection_->socket(),
                          boost::bind(&agency_base::handle_accept, this, _1));
@@ -157,6 +181,7 @@ void agency_base::start_accept()
 
 void agency_base::handle_accept(boost::system::error_code const &err)
 {
+  AGENT_TRACKING("agency_base::handle_accept");
   if(!err) {
     boost::system::error_code ec;
     connection_->socket().set_option(
@@ -185,6 +210,7 @@ void agency_base::handle_read_request_line(
   boost::uint32_t length,
   connection_ptr connection)
 {
+  AGENT_TRACKING("agency_base::handle_read_request_line");
   if(!err) {
     auto &session = sessions_.at(connection);
     auto beg(asio::buffers_begin(session->io_buffer.data())),
@@ -210,6 +236,7 @@ void agency_base::handle_read_header_list(
   connection_ptr connection,
   http::request request)
 {
+  AGENT_TRACKING("agency_base::handle_read_header_list");
   if(!err) {
     auto &session = sessions_.at(connection);
     auto beg(asio::buffers_begin(session->io_buffer.data())),
@@ -219,6 +246,12 @@ void agency_base::handle_read_header_list(
       sessions_.erase(connection);
       return;
     }
+    session->io_buffer.consume(beg - orig);
+#ifdef AGENT_AGENCY_LOG_HEADERS
+  logger::instance().async_log(
+    "request headers", true, 
+    connection->socket().remote_endpoint(), request);
+#endif
     notify(err, request, connection->get_io_service(), connection, 
            get_handler(request.query.path, request.method));
   } else {
