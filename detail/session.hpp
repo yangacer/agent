@@ -16,11 +16,12 @@ public:
   session_type(boost::asio::io_service &io_service)
     : timer(io_service)  {}
 
-  streambuf_type        io_buffer;
-  timer_type            timer;
-  quality_config_type   quality_config;
-  connect_handler_type  connect_handler;
-  io_handler_type       io_handler;
+  streambuf_type          io_buffer;
+  timer_type              timer;
+  quality_config_type     quality_config;
+  connect_handler_type    connect_handler;
+  io_handler_type         io_handler;
+  boost::shared_ptr<void> extra_context;
 };
 
 #endif // header guard

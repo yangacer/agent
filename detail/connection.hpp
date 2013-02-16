@@ -34,6 +34,7 @@ public:
   void read_until(char const* pattern, boost::uint32_t at_most, session_type &session);
   void write(session_type &session);
 
+  boost::asio::io_service &get_io_service();
   socket_type &socket();
   bool is_open() const;
   void close();

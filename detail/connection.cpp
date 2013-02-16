@@ -42,6 +42,9 @@ connection::connection(
 connection::~connection()
 {}
 
+boost::asio::io_service &connection::get_io_service()
+{ return io_service_; }
+
 // GENERIC_BIND_: bind error_code and handler to be called 
 #define GENERIC_BIND_(Callback) \
   boost::bind(Callback, shared_from_this(), \

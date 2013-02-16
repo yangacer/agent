@@ -8,7 +8,9 @@ set ( AGENT_SRC
   timeout_config.cpp
   connection.cpp
   agent_base.cpp
-  agent.cpp)
+  agent.cpp
+  agency_base.cpp
+  agency.cpp)
 
 
 if(MSVC)
