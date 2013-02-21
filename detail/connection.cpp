@@ -170,6 +170,7 @@ void connection::handle_read(
     err_ = boost::asio::error::eof;
   io_service_.post(
     boost::bind(session.io_handler, err_, length));
+  session.io_handler = io_handler_type();
   // TODO add speed limitation
 }
 
@@ -197,6 +198,7 @@ void connection::handle_write(
   session.timer.cancel();
   io_service_.post(
     boost::bind(session.io_handler, err, length));
+  session.io_handler = io_handler_type();
 }
 
 connection::socket_type &

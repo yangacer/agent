@@ -148,7 +148,6 @@ void agency_base::handle_reply_commit(boost::system::error_code const &err,
                                       handler_type handler)
 {
   AGENT_TRACKING("agency_base::handle_reply_commit");
-  session->io_handler = io_handler_type();
   if(!err) {
     connection_ptr conn = 
       boost::static_pointer_cast<connection>(session->extra_context);
@@ -216,9 +215,7 @@ void agency_base::handle_read_request_line(
   session_ptr session)
 {
   AGENT_TRACKING("agency_base::handle_read_request_line");
-  session->io_handler = io_handler_type();
   if(!err) {
-    session->io_handler = io_handler_type();
     auto beg(asio::buffers_begin(session->io_buffer.data())),
          end(asio::buffers_end(session->io_buffer.data())),
          orig = beg;
@@ -245,7 +242,6 @@ void agency_base::handle_read_header_list(
   http::request request)
 {
   AGENT_TRACKING("agency_base::handle_read_header_list");
-  session->io_handler = io_handler_type();
   if(!err) {
     auto beg(asio::buffers_begin(session->io_buffer.data())),
          end(asio::buffers_end(session->io_buffer.data())),
