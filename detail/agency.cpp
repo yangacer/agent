@@ -46,24 +46,30 @@ agency::agency(std::string const &address, std::string const &port,
 
 void agency::async_reply(http::request const &request, 
                          http::response const &response, 
-                         session_token_type session_token,
+                         session_ptr session,
                          handler_type handler)
 {
+  typedef void(agency_base::*mem_fn_type)(
+    http::request const&, http::response const &,
+    session_ptr, handler_type);
 
 }
 
-void agency::async_reply_chunk(session_token_type session_token, 
+void agency::async_reply_chunk(session_ptr session, 
                                boost::asio::const_buffer buffer, 
                                handler_type handler)
 {
-
+  typedef void(agency_base::*mem_fn_type)(
+    session_ptr, boost::asio::const_buffer buffer, handler_type);
 }
 
 void agency::async_reply_commit(http::request const &request, 
-                                session_token_type session_token, 
+                                session_ptr session,
                                 handler_type handler)
 {
-
+  typedef void(agency_base::*mem_fn_type)(
+    http::request const&, session_ptr, handler_type);
+  
 }
 
 void agency::async_reply_commit(http::request const &request,
@@ -75,13 +81,9 @@ void agency::async_reply_commit(http::request const &request,
     http::request const&, http::response const &,
     session_ptr, handler_type);
 
-  connection_ptr conn = 
-    boost::static_pointer_cast<connection>(session->extra_context);
-
-  conn->get_io_service().post(boost::bind(
+  session->connection->get_io_service().post(boost::bind(
       (mem_fn_type)&agency_base::async_reply_commit, this, 
       request, response, session, handler));
-
 }
 
 void agency::notify(boost::system::error_code const &err,

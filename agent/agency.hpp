@@ -2,6 +2,7 @@
 #define AGENT_AGENCY_HPP_
 
 #include "agent/agency_base.hpp"
+#include "agent/session_fwd.hpp"
 
 class agency
 : public agency_base
@@ -12,15 +13,15 @@ public:
   
   void async_reply(http::request const &request, 
                    http::response const &response, 
-                   session_token_type session_token,
+                   session_ptr session,
                    handler_type handler);
 
-  void async_reply_chunk(session_token_type session_token, 
+  void async_reply_chunk(session_ptr session, 
                          boost::asio::const_buffer buffer, 
                          handler_type handler);
   
   void async_reply_commit(http::request const &request, 
-                          session_token_type token, 
+                          session_ptr session, 
                           handler_type handler);
   
   void async_reply_commit(http::request const &request,

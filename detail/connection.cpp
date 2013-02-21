@@ -6,6 +6,7 @@
 #include <boost/asio/read.hpp>
 #include <boost/asio/read_until.hpp>
 #include <boost/asio/write.hpp>
+#include <boost/asio/buffer.hpp>
 #include <boost/ref.hpp>
 #include "agent/pre_compile_options.hpp"
 #include "session.hpp"
@@ -187,6 +188,23 @@ void connection::write(session_type &session)
       IO_BIND_(&connection::handle_write, 0));
   }
   SET_TIMER_(session.quality_config.write_num_bytes(session.io_buffer.size()),
+             &connection::handle_io_timeout);
+}
+
+void connection::write(session_type &session, boost::asio::const_buffer buffer)
+{
+  AGENT_TRACKING("connection::write");
+  auto buf = asio::buffer(buffer);
+  if(ssl_socket_){
+    boost::asio::async_write(
+      ssl_socket_->socket, buf, 
+      IO_BIND_(&connection::handle_write, 0));
+  } else {
+    boost::asio::async_write(
+      socket_, buf, 
+      IO_BIND_(&connection::handle_write, 0));
+  }
+  SET_TIMER_(session.quality_config.write_num_bytes(asio::buffer_size(buf)),
              &connection::handle_io_timeout);
 }
 

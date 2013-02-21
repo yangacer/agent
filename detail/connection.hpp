@@ -33,6 +33,7 @@ public:
   void read_some(boost::uint32_t at_least, session_type &session);
   void read_until(char const* pattern, boost::uint32_t at_most, session_type &session);
   void write(session_type &session);
+  void write(session_type &session, boost::asio::const_buffer buffer);
 
   boost::asio::io_service &get_io_service();
   socket_type &socket();

@@ -35,17 +35,19 @@ public:
                                   std::string const &method);
   void run();
 
-  void async_reply(http::request const &request, /* for connection maintanence*/
+  void async_reply(http::request const &request, 
                    http::response const &response, 
-                   session_token_type session_token,
+                   session_ptr session,
                    handler_type handler);
 
-  void async_reply_chunk(session_token_type session_token, 
+  // FIXME TODO XXX Replace const_buffer with session->io_buffer
+  void async_reply_chunk(http::request const &request,
+                         session_ptr session,
                          boost::asio::const_buffer buffer, 
                          handler_type handler);
   
   void async_reply_commit(http::request const &request, 
-                          session_token_type session_token, 
+                          session_ptr session,
                           handler_type handler);
   
   void async_reply_commit(http::request const &request,
@@ -68,6 +70,11 @@ protected:
     boost::uint32_t length,
     session_ptr session,
     http::request request);
+
+  void handle_reply(boost::system::error_code const &err,
+                    http::request const &request,
+                    session_ptr session,
+                    handler_type handler);
 
   void handle_reply_commit(boost::system::error_code const &err, 
                            http::request const &request,
