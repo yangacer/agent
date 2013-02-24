@@ -48,8 +48,9 @@ struct tube_agent
     agent_.async_get(url, false, 
       boost::bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
-  ~tube_agent()
-  { std::cerr << "tube agent is freed\n"; }
+
+  ~tube_agent(){}
+
 protected:
   void handle_page(
     sys::error_code const& ec, http::request const& req,
@@ -67,7 +68,7 @@ protected:
           auto beg(url.begin()), end(url.end());
           video_url_.clear();
           http::parser::parse_url_esc_string(beg, end, video_url_);
-          agent_.async_get(video_url_, true, 
+          agent_.async_get(video_url_, true, received_, -1,
                            bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
 
         } else {
@@ -79,7 +80,6 @@ protected:
         delayed_get();
         std::cerr << "\n---- http error code (" << resp.status_code << "\n";
       }
-      //std::cerr << resp.status_code << "\n";
     } else {
       std::cerr << "get_page error: " << ec.message() << "\n";
     }
@@ -139,24 +139,23 @@ protected:
     http::response const &resp, asio::const_buffer buffer)
   {
     size_t size = asio::buffer_size(buffer);
-    if(!ec && resp.status_code == 200) {
+    if(!ec && resp.status_code - 200 < 100) {
       if( size == 0 ) {
         auto h = http::find_header(resp.headers, "Content-Length");
         std::cerr << "Content length: " << h->value << "\n\n\n";
         total_ = h->value_as<size_t>();
-      } else {
-        received_ += size;
-        // std::cout.width(12);
-        // std::cout.fill(' ');
-        std::cout << "\033[F\033[J" // << received_ << "/" << total_ << "\n";
-          <<  (received_/100)/(total_/10000) << "%\n";
-          //<< (100*received_)/(double)total_ << " %\n";
       }
+
+      received_ += size;
+      std::cout << "\033[F\033[J" // << received_ << "/" << total_ << "\n";
+      <<  (received_/100)/(total_/10000) << "%\n";
+      //<< (100*received_)/(double)total_ << " %\n";
+
     } else if(eof == ec) {
-      if(!received_) {
+      received_ += size;
+      if(received_ < total_) {
         delayed_get();
       } else {
-        received_ += size;
         std::cout.width(12);
         std::cout.fill(' ');
         std::cout << "\033[F\033[J" << received_ << "\n";
@@ -182,6 +181,7 @@ protected:
       retry_count_++;
     } else {
       std::cerr << "Exceed retry limit. Abort job.\n";
+      agent_.async_abort();
       return;
     }
   }

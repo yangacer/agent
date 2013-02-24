@@ -40,7 +40,6 @@ public:
                    session_ptr session,
                    handler_type handler);
 
-  // FIXME TODO XXX Replace const_buffer with session->io_buffer
   void async_reply_chunk(http::request const &request,
                          session_ptr session,
                          boost::asio::const_buffer buffer, 
@@ -97,8 +96,6 @@ private:
     std::string, 
     std::map<std::string, handler_type> 
       > handlers_;
-  // XXX Do not keep session here! 
-  // std::map<connection_ptr, session_ptr> sessions_;
 };
 
 #endif
