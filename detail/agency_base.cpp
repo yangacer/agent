@@ -123,9 +123,9 @@ void agency_base::handle_reply(boost::system::error_code const &err,
                                handler_type handler)
 {
   AGENT_TRACKING("agency_base::handle_reply");
+  asio::io_service &ios = session->connection->get_io_service();
   if(err) session->connection.reset();
-  notify(err, request, session->connection->get_io_service(), 
-         session, handler);
+  notify(err, request, ios, session, handler);
 }
 
 void agency_base::async_reply_chunk(http::request const &request,
@@ -273,16 +273,54 @@ void agency_base::handle_read_header_list(
     "request headers", true, 
     session->connection->socket().remote_endpoint(), request);
 #endif
-    notify(err, request, session->connection->get_io_service(), 
+    boost::system::error_code agency_error = err;
+    auto content_length = http::find_header(request.headers, "Content-Length");
+    
+    if( content_length != request.headers.end() ) 
+      session->expected_size =   
+        content_length->value_as<boost::int64_t>();
+    else
+      session->expected_size = 0;
+
+    if(session->expected_size) {
+      session->io_handler = boost::bind(
+        &agency_base::handle_read_body, this, _1, _2, session, request);
+      session->connection->read_some(1, *session);
+    } else {
+      agency_error = boost::asio::error::eof;
+    }
+    
+    notify(agency_error, request, session->connection->get_io_service(), 
            session, get_handler(
              request.query.path, request.method));
-    // read body
-    
   }
- 
+}
+
+void agency_base::handle_read_body(
+  boost::system::error_code const &err, 
+  boost::uint32_t length,
+  session_ptr session,
+  http::request const &request)
+{
+  AGENT_TRACKING("agency_base::handle_read_body");
+  // XXX Do I need to support chunked encoding?
+  session->expected_size -= length;
+  asio::io_service &ios = session->connection->get_io_service();
+  
+  if(session->expected_size && !err) {
+    session->io_handler = boost::bind(
+      &agency_base::handle_read_body, this, _1, _2, session, request);
+    session->connection->read_some(1, *session);
+  } 
+  if(err) 
+    session->connection.reset();
+  
+  notify(err, request, ios, session, 
+         get_handler(request.query.path, request.method));
 }
 
 void agency_base::handle_stop()
 {
+  AGENT_TRACKING("agency_base::handle_stop");
   io_service_pool_.stop(); 
 }

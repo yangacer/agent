@@ -1,10 +1,9 @@
 
 set( test_targets 
      basic log io_service_pool redirect 
-     range_request
-     agency)
+     range_request)
 
-set( example_targets tube )
+set( example_targets tube agency)
 
 foreach( test IN LISTS test_targets )
   add_executable ( ${test} ${test}.cpp )

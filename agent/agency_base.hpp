@@ -58,7 +58,6 @@ protected:
   void start_accept();
   void handle_accept(boost::system::error_code const &err);
   void start_read(session_ptr session);
-
   void handle_read_request_line(
     boost::system::error_code const &err, 
     boost::uint32_t length,
@@ -69,6 +68,12 @@ protected:
     boost::uint32_t length,
     session_ptr session,
     http::request request);
+
+  void handle_read_body(
+    boost::system::error_code const &err, 
+    boost::uint32_t length,
+    session_ptr session,
+    http::request const &request);
 
   void handle_reply(boost::system::error_code const &err,
                     http::request const &request,

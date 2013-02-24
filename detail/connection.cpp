@@ -102,7 +102,7 @@ void connection::handle_secured_connect(
                 &connection::handle_connect_timeout);
   } else {
     io_service_.post(boost::bind(session.connect_handler, err));
-    session.connect_handler = connection_handler_type();
+    session.connect_handler = connect_handler_type();
   }
 }
 
@@ -113,7 +113,7 @@ void connection::handle_connect(
   AGENT_TRACKING("connection::handle_connect");
   session.timer.cancel();
   io_service_.post(boost::bind(session.connect_handler, err));
-  session.connect_handler = connection_handler_type();
+  session.connect_handler = connect_handler_type();
 }
 
 // IO_BIND_: Bind error_code, length, and offset to be called

@@ -3,7 +3,15 @@
 #include "agent/log.hpp"
 #include "connection.hpp"
 #include "session.hpp"
+#include "agent/log.hpp"
+#include "agent/pre_compile_options.hpp"
 
+#ifdef AGENT_ENABLE_HANDLER_TRACKING
+#   define AGENT_TRACKING(Desc) \
+    logger::instance().async_log(Desc, false, (void*)this);
+#else
+#   define AGENT_TRACKING(Desc)
+#endif
 // ---- fobidden handler ---
 
 struct forbidden_handler
@@ -13,25 +21,30 @@ struct forbidden_handler
                       agency &agency_, 
                       session_ptr session)
   {
+    AGENT_TRACKING("forbidden_handler::handle_request");
     using http::entity::field;
-
-    http::response resp =
-      http::response::stock_response(http::status_type::forbidden);
-    resp.headers << field("Content-Length", 0);
-    agency_.async_reply_commit(
-      request, resp, session, 
-      boost::bind(&forbidden_handler::handle_commit, this, _1, _2, _3, _4));
+    if( err == boost::asio::error::eof ) {
+      http::response resp =
+        http::response::stock_response(http::status_type::forbidden);
+      resp.headers << field("Content-Length", 0);
+      agency_.async_reply_commit(
+        request, resp, session, 
+        boost::bind(&forbidden_handler::handle_commit, this,
+                    _1, _2, _3, _4));
+    }
   }
 
   void handle_commit(boost::system::error_code const &err, 
-                     http::request const & request,
-                     agency &agency_, 
-                     session_ptr session)
+                      http::request const & request,
+                      agency &agency_, 
+                      session_ptr session)
   {
+    AGENT_TRACKING("forbidden_handler::handle_commit");
   }
 
 };
 
+// --- agency impl ----
 
 agency::agency(std::string const &address, std::string const &port, 
                std::size_t thread_number)
@@ -81,6 +94,7 @@ void agency::async_reply_commit(http::request const &request,
     http::request const&, http::response const &,
     session_ptr, handler_type);
 
+  AGENT_TRACKING("agency::async_reply_commit");
   session->connection->get_io_service().post(boost::bind(
       (mem_fn_type)&agency_base::async_reply_commit, this, 
       request, response, session, handler));
