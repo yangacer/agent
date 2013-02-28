@@ -125,7 +125,7 @@ void agency_base::handle_reply(boost::system::error_code const &err,
   AGENT_TRACKING("agency_base::handle_reply");
   asio::io_service &ios = session->connection->get_io_service();
   if(err) session->connection.reset();
-  notify(err, request, ios, session, handler);
+  notify(err, request, ios, session, asio::const_buffer(0,0), handler);
 }
 
 void agency_base::async_reply_chunk(http::request const &request,
@@ -185,16 +185,16 @@ void agency_base::handle_reply_commit(boost::system::error_code const &err,
         connection_policy->value == "Close")
     {
       session->connection.reset();
-      notify(err, request, ios, session, handler);
+      notify(err, request, ios, session, asio::const_buffer(0,0), handler);
     } else { 
       // keep-alive
-      notify(err, request, ios, session, handler);
+      notify(err, request, ios, session, asio::const_buffer(0,0), handler);
       session->quality_config.read_kb(10);
       start_read(session);
     }
   } else {
     session->connection.reset();
-    notify(err, http::request(), ios, session, handler);
+    notify(err, http::request(), ios, session, asio::const_buffer(0,0), handler);
   }
 }
 
@@ -291,7 +291,7 @@ void agency_base::handle_read_header_list(
     }
     
     notify(agency_error, request, session->connection->get_io_service(), 
-           session, get_handler(
+           session, asio::const_buffer(0,0), get_handler(
              request.query.path, request.method));
   }
 }
@@ -311,12 +311,14 @@ void agency_base::handle_read_body(
     session->io_handler = boost::bind(
       &agency_base::handle_read_body, this, _1, _2, session, request);
     session->connection->read_some(1, *session);
-  } 
-  if(err) 
+  } else { 
     session->connection.reset();
-  
-  notify(err, request, ios, session, 
-         get_handler(request.query.path, request.method));
+    asio::const_buffer buf(
+      asio::buffer_cast<char const*>(session->io_buffer.data()), 
+      session->io_buffer.size());
+    notify(err, request, ios, session, buf,
+           get_handler(request.query.path, request.method));
+  }
 }
 
 void agency_base::handle_stop()

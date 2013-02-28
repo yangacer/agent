@@ -1,5 +1,6 @@
 #include "agent/agency.hpp"
 #include <boost/ref.hpp>
+#include <boost/asio/buffer.hpp>
 #include "agent/log.hpp"
 #include "connection.hpp"
 #include "session.hpp"
@@ -19,7 +20,8 @@ struct forbidden_handler
   void handle_request(boost::system::error_code const &err, 
                       http::request const & request,
                       agency &agency_, 
-                      session_ptr session)
+                      session_ptr session,
+                      boost::asio::const_buffer)
   {
     AGENT_TRACKING("forbidden_handler::handle_request");
     using http::entity::field;
@@ -29,15 +31,11 @@ struct forbidden_handler
       resp.headers << field("Content-Length", 0);
       agency_.async_reply_commit(
         request, resp, session, 
-        boost::bind(&forbidden_handler::handle_commit, this,
-                    _1, _2, _3, _4));
+        boost::bind(&forbidden_handler::handle_commit, this, _1));//, _2, _3, _4, _5));
     }
   }
 
-  void handle_commit(boost::system::error_code const &err, 
-                      http::request const & request,
-                      agency &agency_, 
-                      session_ptr session)
+  void handle_commit(boost::system::error_code const &err)//, 
   {
     AGENT_TRACKING("forbidden_handler::handle_commit");
   }
@@ -54,7 +52,7 @@ agency::agency(std::string const &address, std::string const &port,
   boost::shared_ptr<forbidden_handler> fbh(new forbidden_handler);
   add_handler("_forbidden_", "GET", 
               boost::bind(&forbidden_handler::handle_request, fbh, 
-                          _1, _2, _3, _4));
+                          _1, _2, _3, _4, _5));
 }
 
 void agency::async_reply(http::request const &request, 
@@ -104,9 +102,11 @@ void agency::notify(boost::system::error_code const &err,
                     http::request const &request,
                     boost::asio::io_service &io_service,
                     session_ptr session,
+                    boost::asio::const_buffer buffer,
                     handler_type handler)
 {
   io_service.post(
-    boost::bind(handler,
-                err, request, boost::ref(*this), session));
+    boost::bind(
+      handler, err, request, 
+      boost::ref(*this), session, buffer));
 }

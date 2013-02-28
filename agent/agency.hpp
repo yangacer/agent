@@ -33,6 +33,7 @@ protected:
                       http::request const &request,
                       boost::asio::io_service &io_service,
                       session_ptr session,
+                      boost::asio::const_buffer buffer,
                       handler_type handler);
 };
 

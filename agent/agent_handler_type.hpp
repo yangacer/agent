@@ -13,5 +13,5 @@ typedef boost::function<
     http::response const &, 
     boost::asio::const_buffer buffer)
   > agent_handler_type;
-
+// TODO add agent& to interface
 #endif

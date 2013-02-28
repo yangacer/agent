@@ -91,6 +91,7 @@ protected:
                       http::request const &request,
                       boost::asio::io_service &io_service,
                       session_ptr session,
+                      boost::asio::const_buffer buffer,
                       handler_type handler) = 0;
 private:
   io_service_pool io_service_pool_;

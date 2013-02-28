@@ -47,7 +47,7 @@ int main()
                  boost::bind(&get_handler::handle_response, &h3,
                              _1,_2,_3,_4));
 
-  get4.async_get(url("http://yangacer.twbbs.org/~yangacer/"), false, 
+  get4.async_get(url("http://www.yahoo.com/"), false, 
                  boost::bind(&get_handler::handle_response, &h4,
                              _1,_2,_3,_4));
 
