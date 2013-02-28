@@ -1,6 +1,6 @@
 #Requirements
 
-- boost 1.52 ( branch/release is approved to be break )
+- boost 1.52+
 - openssl
 
 #Installation
@@ -16,4 +16,17 @@
 
 - test/tube.cpp
 
-Yang, Acer 12, 31, 2012.
+#Features
+
+- Chunked notification (no matter what transfer encoding is).
+
+- Concurrent execution.
+
+- Support HTTPS (without needing of cert file).
+
+
+#Contributors
+
+[Michael Yang](https://github.com/flachesis).
+
+
