@@ -80,6 +80,11 @@ protected:
                     session_ptr session,
                     handler_type handler);
 
+  void handle_reply_chunk(boost::system::error_code const &err,
+                          http::request const &request,
+                          session_ptr session,
+                          handler_type handler);
+
   void handle_reply_commit(boost::system::error_code const &err, 
                            http::request const &request,
                            session_ptr session,

@@ -134,12 +134,28 @@ void agency_base::async_reply_chunk(http::request const &request,
                                     handler_type handler)
 {
   AGENT_TRACKING("agency_base::async_reply_chunk");
+  session->io_handler = boost::bind(
+    &agency_base::handle_reply_chunk, this, _1, request, session, handler);
+  session->connection->write(*session, buffer);
+}
+
+void agency_base::handle_reply_chunk(boost::system::error_code const &err,
+                                     http::request const &request,
+                                     session_ptr session,
+                                     handler_type handler)
+{
+  AGENT_TRACKING("agency_base::handle_reply_chunk");
+  asio::io_service &ios = session->connection->get_io_service();
+  if(err) session->connection.reset();
+  notify(err, request, ios, session, handler);
 }
 
 void agency_base::async_reply_commit(http::request const &request, 
                                      session_ptr session,
                                      handler_type handler)
 {
+  AGENT_TRACKING("agency_base::async_reply_commit");
+  handle_reply_commit(boost::system::error_code(), request, session, handler);
 }
 
 void agency_base::async_reply_commit(http::request const &request,
