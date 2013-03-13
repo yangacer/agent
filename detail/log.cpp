@@ -12,7 +12,7 @@ std::string timestamp()
   return posix::to_iso_string(now);
 }
 
-std::unique_ptr<logger> logger::instance_ = nullptr;
+std::unique_ptr<logger> logger::instance_;
 boost::mutex logger::mutex_;
 
 logger::logger()
