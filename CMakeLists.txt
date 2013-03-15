@@ -35,8 +35,7 @@ set (Boost_ADDITIONAL_VERSIONS "1.52" "1.52.0" "1.53" "1.53.0")
 find_package ( Boost REQUIRED COMPONENTS 
                system
                date_time
-               thread
-               exception)
+               thread)
 
 if(Boost_FOUND)
   include_directories(${Boost_INCLUDE_DIRS})
