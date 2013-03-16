@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <stdexcept>
 #include <algorithm>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
@@ -33,11 +34,15 @@ std::string get_value(
 
 struct tube_agent
 {
-  tube_agent(asio::io_service &ios, int max_retry)
+  tube_agent(asio::io_service &ios, int max_retry, std::string const &file)
     : agent_(ios), received_(0), total_(0),
   max_retry_(max_retry), retry_count_(0),
   previous_delay_(5), blocked_timer_(ios)
-  {}
+  {
+    ofs_.open(file.c_str(), std::ios::out | std::ios::binary);
+    if(!ofs_.is_open()) 
+      throw std::runtime_error("Unable to open file");
+  }
 
   void get(std::string const &url,
            std::string const &itag)
@@ -49,7 +54,11 @@ struct tube_agent
       boost::bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
   }
 
-  ~tube_agent(){}
+  ~tube_agent()
+  {
+    ofs_.flush();
+    ofs_.close();
+  }
 
 protected:
   void handle_page(
@@ -147,12 +156,14 @@ protected:
       }
 
       received_ += size;
+      ofs_.write(asio::buffer_cast<char const *>(buffer), size);
       std::cout << "\033[F\033[J" // << received_ << "/" << total_ << "\n";
       <<  (received_/100)/(total_/10000) << "%\n";
       //<< (100*received_)/(double)total_ << " %\n";
 
     } else if(eof == ec) {
       received_ += size;
+      ofs_.write(asio::buffer_cast<char const *>(buffer), size);
       if(received_ < total_) {
         delayed_get();
       } else {
@@ -205,16 +216,28 @@ private:
   int retry_count_;
   int previous_delay_;
   asio::deadline_timer blocked_timer_;
+  std::ofstream ofs_;
 };
 
 int main(int argc, char** argv)
 {
-  asio::io_service ios;
-  tube_agent ta(ios, 10);
-  logger::instance().use_file("tube.log");
+  using namespace std;
 
-  ta.get("http://www.youtube.com/watch?v=NPoHPNeU9fc", "37");
+  if(argc < 4) {
+    cerr << "Usage: tube <url> <fromat> <file>\n";
+    exit(1);
+  }
 
-  ios.run();
+  try {
+    asio::io_service ios;
+    tube_agent ta(ios, 10, argv[3]);
+    logger::instance().use_file("tube.log");
+
+    ta.get(argv[1], argv[2]);
+
+    ios.run();
+  } catch (std::runtime_error &e){
+    std::cerr << "Error: " << e.what() << "\n";
+  }
   return 0;
 }
