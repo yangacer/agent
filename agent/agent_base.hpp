@@ -37,6 +37,11 @@ public:
                   bool chunked_callback,
                   handler_type handler);
 
+  void async_post_file(http::entity::url const &url,
+                       http::entity::query_map_t const &post_parameter,
+                       std::string const &filename,
+                       handler_type handler);
+
   void async_abort();
   // TODO int speed() const;
   http::request &request();

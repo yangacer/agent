@@ -5,10 +5,12 @@ set ( AGENT_SRC
   io_service_pool.cpp
   log.cpp log_impl.cpp
   parser.cpp generator.cpp entity.cpp
+  multipart.cpp
   timeout_config.cpp
   connection.cpp
   session.cpp
   agent_base.cpp
+  agent_base_v2.cpp
   agent.cpp)
 #agency_base.cpp
 # agency.cpp)

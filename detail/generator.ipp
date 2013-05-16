@@ -58,17 +58,28 @@ field<Iterator>::field()
 }
 
 template<typename Iterator>
+query_value<Iterator>::query_value()
+: query_value::base_type(start)
+{
+ start = 
+   karma::double_ | int64_ | esc_string(ESCAPE_PATH_DELIM)
+   ;
+}
+
+template<typename Iterator>
 query_map<Iterator>::query_map()
 : query_map::base_type(start)
 {
+  /*
   query_value =
     karma::double_ | 
     int64_ |
     esc_string(ESCAPE_PATH_DELIM) 
     ;
+    */
   query_pair =
     esc_string(ESCAPE_PATH_DELIM) << '=' <<
-    query_value
+    query_val
     ;
   start =
     query_pair % '&'

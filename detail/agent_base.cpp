@@ -122,7 +122,6 @@ void agent_base::async_post(http::entity::url const &url,
   auto content_length = 
     get_header(request_.headers, "Content-Length");
 
-
   if(content_type->value.empty()) content_type->value = 
     "application/x-www-form-urlencoded";
 
@@ -133,6 +132,36 @@ void agent_base::async_post(http::entity::url const &url,
   os.flush();
   os << request_ << body.str();
   start_op(url.host, determine_service(url), handler);
+}
+
+void agent_base::async_post_file(http::entity::url const &url,
+                     http::entity::query_map_t const &post_parameter,
+                     std::string const &filename,
+                     handler_type handler)
+{
+  char const *CRLF = "\r\n";
+
+  /*
+  init("POST", url);
+  std::ostream os(&session_->io_buffer);
+  std::stringstream body;
+  auto content_type = 
+    get_header(request_.headers, "Content-Type");
+  auto content_length = 
+    get_header(request_.headers, "Content-Length");
+  std::string boundary = "----AgentBoundaryASDFGHJKL--";
+  // FIXME make boundary randomize
+  content_type->value = "multipart/form-data; boundary=" + boundary;
+
+  for(auto i = post_parameter.begin(); i != post_parameter.end(); ++i) {
+    / * TODO
+    body << "--" << boundary << CRLF <<
+      "Content-Disposition: form-data; name=\"" << i->first;
+      * /
+  }
+  chunked_callback_ = false;
+  */
+
 }
 
 void agent_base::async_abort()
@@ -167,7 +196,6 @@ agent_base::init(std::string const &method, http::entity::url const &url)
 
   redirect_count_ = 0;
   session_.reset(new session_type(io_service_));
-  session_->io_buffer.prepare(AGENT_CONNECTION_BUFFER_SIZE);
 }
 
 void agent_base::start_op(

@@ -8,7 +8,8 @@
   template response<IterType>::response(); \
   template request<IterType>::request(); \
   template uri<IterType>::uri(); \
-  template query_map<IterType>::query_map();
+  template query_value<IterType>::query_value(); \
+  template query_map<IterType>::query_map(); 
 
 namespace http { namespace generator {
   

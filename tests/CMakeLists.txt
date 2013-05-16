@@ -1,7 +1,9 @@
 
 set( test_targets 
      basic log io_service_pool redirect 
-     range_request)
+     range_request
+     agent_v2
+     multipart)
 
 set( example_targets tube )
   #agency)
