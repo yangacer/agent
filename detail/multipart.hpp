@@ -30,9 +30,10 @@ private:
     std::ifstream file;
   };
   std::string boundary_;
-  std::string::size_type const buffer_size_ = 4096;
+  std::string::size_type const buffer_size_;
   std::string buffer_;
   boost::intmax_t size_;
+  // FIXME gcc 4.5 can not init istream properly. 
   std::vector<part> part_list_;
   std::vector<part>::size_type cur_;
 };

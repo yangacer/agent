@@ -22,6 +22,7 @@ std::string gen_boundary()
 
 multipart::multipart(http::entity::query_map_t const &query_map)
 : boundary_(gen_boundary()), 
+  buffer_size_(4096),
   buffer_(buffer_size_, 0),
   size_(0), 
   part_list_(query_map.size()+1), 
