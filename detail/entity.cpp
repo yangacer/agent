@@ -2,6 +2,9 @@
 #include "agent/generator.hpp"
 #include "agent/status_code.hpp"
 #include "agent/parser.hpp"
+#include "agent/version.hpp"
+
+#define USER_AGENT_STR "OokonHTTPAgent"
 
 namespace http {
 namespace entity {
@@ -11,6 +14,20 @@ url::url(std::string const &escaped_url)
 {
   auto beg(escaped_url.begin()), end(escaped_url.end());
   parser::parse_url(beg, end, *this);
+}
+
+request::request()
+: http_version_major(1), http_version_minor(1)
+{
+  auto header = get_header(headers, "Accept");
+  header->value = "*/*";
+  header = get_header(headers, "Connection");
+  header->value = "keep-alive";
+  header = get_header(headers, "User-Agent");
+  std::string ustr = USER_AGENT_STR;
+  ustr += " Ver. ";
+  ustr += agent_version();
+  header->value = ustr;
 }
 
 void request::clear()

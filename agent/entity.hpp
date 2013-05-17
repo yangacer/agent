@@ -61,6 +61,7 @@ struct url
 
 struct request
 {
+  request();
   std::string method;
   uri query;
   int http_version_major,

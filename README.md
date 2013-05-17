@@ -10,13 +10,15 @@
     cmake .. -DCMAKE_PREFIX_PATH=/path/to/include -DCMAKE_INSTALL_PREFIX=/path/for/install
     make install  # administrator privilege may be required
 
-#Example
+#Examples
 
 - test/basic.cpp
 
 - test/tube.cpp
 
 #Features
+
+- Form-multipart upload.
 
 - Chunked notification (no matter what transfer encoding is).
 

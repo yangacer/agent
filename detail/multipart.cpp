@@ -1,8 +1,9 @@
 #include "multipart.hpp"
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <boost/asio/buffer.hpp>
+#include <cassert>
 #include "agent/generator.hpp"
-#include <iostream>
 
 #ifdef _WIN32
 #define PATH_DELIM "\\"
@@ -32,7 +33,8 @@ multipart::multipart(http::entity::query_map_t const &query_map)
   size_t last = 0;
   char const *CRLF = "\r\n";
   for(auto i = query_map.begin(); i != query_map.end(); ++i) {
-    part &p = part_list_[last++];
+    part_list_[last] = new part;
+    part &p = *(part_list_[last++]);
     p.text << "--" << boundary_ << CRLF;
     if( '@' != (i->first)[0] ) {
       p.text << field("Content-Disposition", 
@@ -68,12 +70,18 @@ multipart::multipart(http::entity::query_map_t const &query_map)
         throw std::logic_error("File not found");
     }
   }
-  part &p = part_list_[last];
+  part_list_[last] = new part;
+  part &p = *(part_list_[last]);
   p.text << "--" << boundary_ << "--" << CRLF;
   size_ += p.text.str().size();
+}
 
-  //for(auto i = part_list_.begin(); i != part_list_.end(); ++i) 
-  //  std::cout << i->text.str();
+multipart::~multipart()
+{
+  for(auto i=part_list_.begin(); i != part_list_.end();++i) {
+    delete *i;
+    *i = 0;
+  }
 }
 
 std::string const &multipart::boundary() const
@@ -86,25 +94,47 @@ boost::intmax_t multipart::size() const
   return size_;
 }
 
-void multipart::write_to(std::ostream &os, boost::intmax_t least)
+void multipart::read(boost::asio::streambuf &sb, boost::intmax_t size)
 {
-  //boost::intmax_t written = 0;
-  if(eof()) return;
-  part &p = part_list_[cur_];
-  os << p.text.str();
-  if( p.file.is_open() ) {
-    p.file.read(&buffer_[0], buffer_size_);
-    os.write(buffer_.data(), p.file.gcount());
-    if(p.file.eof()) {
-      os << "\r\n";
-      p.file.close();
-    } else 
-      return;
+  assert(size > 2 && "mutipart: buffer is too small");
+  auto mb = sb.prepare(size);
+  boost::intmax_t readcnt = 0;
+  char *buf = boost::asio::buffer_cast<char*>(mb);
+  while(!eof() && size) {
+    part &p = *(part_list_[cur_]);
+    if( !p.text.eof() ) {
+      p.text.read(buf + readcnt, size); 
+      size -= p.text.gcount();
+      readcnt += p.text.gcount();
+      if(!size) break;
+    }
+    if( p.file.is_open() ) {
+      p.file.read(buf + readcnt, size);
+      size -= p.file.gcount();
+      readcnt += p.file.gcount();
+      if( p.file.eof() && size > 2) {
+        memcpy(buf + readcnt, "\r\n", 2);
+        size -= 2;
+        readcnt += 2;
+        p.file.close();
+      } else {
+        break;
+      }
+      if(!size) break;
+    }
+    if( p.eof() ) {
+      ++cur_;
+    }
   }
-  ++cur_;
+  sb.commit(readcnt);
 }
 
 bool multipart::eof() const
 {
-  return cur_ >= part_list_.size() && !part_list_.back().file.is_open();
+  return cur_ >= part_list_.size() ;
+}
+
+bool multipart::part::eof() const
+{
+  return text.eof() && !file.is_open() ;
 }

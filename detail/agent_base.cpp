@@ -226,7 +226,7 @@ void agent_base::handle_resolve(boost::system::error_code const &err,
         endpoint->endpoint() == connection_->socket().remote_endpoint(err_))
     {
       AGENT_TRACKING("agent_base::handle_resolve(reuse) " + endpoint->endpoint().address().to_string());
-      if(!err)
+      if(!err_)
         write_request();
       else
         notify_error(err_);

@@ -12,6 +12,7 @@
 #include "agent/entity.hpp"
 
 class session_type;
+class multipart;
 
 class agent_base_v2
 : private boost::noncopyable
@@ -20,6 +21,7 @@ class agent_base_v2
   typedef tcp::resolver resolver;
   typedef boost::shared_ptr<session_type> session_ptr;
   typedef boost::shared_ptr<agent_handler_type> handler_ptr;
+  typedef boost::shared_ptr<multipart> multipart_ptr;
 public:
   typedef agent_handler_type handler_type;
   
@@ -32,14 +34,10 @@ public:
     bool chunked_callback,
     handler_type handler);
 
-  /*
-  void async_post(http::request const &request,
-                  bool chunked_callback,
-                  handler_type handler);
-  */
   void async_post_multipart(
+    http::entity::url const &url,
     http::request const &request,
-    std::vector<std::string> files,
+    bool chunked_callback,
     handler_type handler);
   /*
   void async_abort();
@@ -53,13 +51,13 @@ protected:
     http::request request;
     http::response response;
     unsigned char redirect_count;
-    bool chunked_calback;
+    bool chunked_callback;
     boost::uintmax_t expected_size;
     bool is_redirecting;
     connection_ptr  connection;
     session_ptr   session;
     handler_type  handler;
-    //multipart     multipart_ctx;
+    multipart_ptr mpart;
   };
   typedef boost::shared_ptr<context> context_ptr;
 
@@ -68,22 +66,30 @@ protected:
                       context_ptr ctx_ptr);
   void handle_connect(boost::system::error_code const &err,
                       context_ptr ctx_ptr);
-  /*
-  void write_request();
   void handle_write_request(boost::system::error_code const &err,
-                            boost::uint32_t len);
-  void handle_read_status_line(boost::system::error_code const &err);
-  void handle_read_headers(boost::system::error_code const &err);
-  void redirect();
-  void diagnose_transmission();
-  void read_chunk();
-  void handle_read_chunk(boost::system::error_code const &err);
-  void read_body();
-  void handle_read_body(boost::system::error_code const &err, boost::uint32_t length);
-  */
+                            boost::uint32_t length,
+                            context_ptr ctx_ptr);
+  void handle_read_status_line(boost::system::error_code const &err,
+                               context_ptr ctx_ptr);
+  void handle_read_headers(boost::system::error_code const &err,
+                           context_ptr ctx_ptr);
+  void diagnose_transmission(context_ptr ctx_ptr);
+  void read_chunk(context_ptr ctx_ptr);
+  void handle_read_chunk(boost::system::error_code const &err, 
+                         context_ptr ctx_ptr);
+  void read_body(context_ptr ctx_ptr);
+  void handle_read_body(boost::system::error_code const &err, 
+                        boost::uint32_t length,
+                        context_ptr ctx_ptr);
+  void redirect(context_ptr ctx_ptr);
+  void notify_chunk(boost::system::error_code const &err, 
+                    boost::uint32_t length, 
+                    context_ptr ctx_ptr);
+  void notify_error(boost::system::error_code const &err, 
+                    context_ptr ctx_ptr);
 private:
-  boost::asio::io_service &io_service_;
-  tcp::resolver   resolver_;
+  boost::asio::io_service   &io_service_;
+  tcp::resolver             resolver_;
 };
 
 

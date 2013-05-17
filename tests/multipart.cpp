@@ -11,12 +11,16 @@ int main(int argc, char **argv)
   qm.insert(make_pair("@file", string(argv[1])));
   qm.insert(make_pair("@file2", string(argv[2])));
 
-  multipart mp(qm);
+  int bufmax = 256;
+  for(int i=3; i < bufmax; ++i) {
+    multipart mp(qm);
 
-  cout << "Size: " << mp.size() << "\n";
-  while(!mp.eof()) {
-    mp.write_to(cout);
+    cout << "Size: " << mp.size() << "\n";
+    boost::asio::streambuf sb;
+    while(!mp.eof()) {
+      mp.read(sb, i);
+      cout << &sb;
+    }
   }
-
   return 0;
 }

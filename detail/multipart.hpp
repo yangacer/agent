@@ -18,24 +18,24 @@ public:
    * @endcode
    */
   multipart(http::entity::query_map_t const &query_map);
-
+  ~multipart();
   std::string const &boundary() const;
   boost::intmax_t size() const;
-  void write_to(std::ostream &os, boost::intmax_t least=0);
+  void read(boost::asio::streambuf &sb, boost::intmax_t size);
   bool eof() const;
 private:
   struct part
   {
     std::stringstream text;
     std::ifstream file;
+    bool eof() const;
   };
   std::string boundary_;
   std::string::size_type const buffer_size_;
   std::string buffer_;
   boost::intmax_t size_;
-  // FIXME gcc 4.5 can not init istream properly. 
-  std::vector<part> part_list_;
-  std::vector<part>::size_type cur_;
+  std::vector<part*> part_list_;
+  std::vector<part*>::size_type cur_;
 };
 
 #endif
