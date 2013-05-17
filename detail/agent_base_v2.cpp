@@ -292,6 +292,7 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
                          sys::system_category());
       notify_error(ec, ctx_ptr);
     } else {
+      // FIXME Check has been received
       read_chunk(ctx_ptr);
     }
   } else { 
