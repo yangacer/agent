@@ -38,17 +38,33 @@ determine_service_v2(http::entity::url const & url)
     ;
 }
 
-void check_and_set_host(http::request &req, http::entity::url const &url)
-{
-  auto host = http::get_header(req.headers, "Host");
-  host->value = url.host;
-  if(url.port)
-    host->value += ":" + boost::lexical_cast<std::string>(url.port);
-}
-
 namespace asio = boost::asio;
 namespace asio_ph = boost::asio::placeholders;
 namespace sys = boost::system;
+
+agent_base_v2::context::context(
+  boost::asio::io_service &ios,
+  http::request const &request_,
+  bool chunked_callback,
+  handler_type const &handler)
+  : request(request_),
+  redirect_count(0), 
+  chunked_callback(chunked_callback),
+  expected_size(0),
+  is_redirecting(false),
+  session(new session_type(ios)),
+  handler(handler)
+{
+  using http::get_header;
+  if(request.method == "POST") {
+    mpart.reset(new multipart(request.query.query_map));
+    request.query.query_map.clear();
+    auto content_type = get_header(request.headers, "Content-Type");
+    auto content_length = get_header(request.headers, "Content-Length");
+    content_type->value = "multipart/form-data; boundary=" + mpart->boundary();
+    content_length->value_as(mpart->size());
+  }
+}
 
 agent_base_v2::context::~context()
 {
@@ -67,70 +83,29 @@ agent_base_v2::~agent_base_v2()
   AGENT_TRACKING("agent_base_v2::dtor");
 }
 
-void agent_base_v2::async_get(
+void agent_base_v2::async_request(
   http::entity::url const &url,
-  http::request const &request,
+  http::request request, 
+  std::string const &method,
   bool chunked_callback,
   handler_type handler)
 {
-  context ctx {
-    request, 
-    {}, // response
-    0,  // redirected count
-    chunked_callback, 
-    0, // expected size
-    false, // is redirecting
-    connection_ptr(), // connection pointer
-    session_ptr(new session_type(io_service_)),
-    handler,
-    multipart_ptr() // mpart
-  };
-
-  check_and_set_host(ctx.request, url);
-
-  tcp::resolver::query query(
-    url.host, 
-    determine_service_v2(url));
+  request.query = url.query;
+  request.method = method;
+  auto host = http::get_header(request.headers, "Host");
+  host->value = url.host;
+  if(url.port)
+    host->value += ":" + boost::lexical_cast<std::string>(url.port);
   
-  context_ptr sp(new context(std::move(ctx)));
-
-  resolver_.async_resolve( query,
-    boost::bind(&agent_base_v2::handle_resolve, this, _1, _2, sp));
-}
-
-void agent_base_v2::async_post_multipart(
-  http::entity::url const &url,
-  http::request const &request,
-  bool chunked_callback,
-  handler_type handler)
-{
-  context ctx {
-    request, 
-    {}, // response
-    0,  // redirected count
-    chunked_callback, // chunked callback
-    0, // expected size
-    false, // is redirecting
-    connection_ptr(), // connection pointer
-    session_ptr(new session_type(io_service_)),
-    handler,
-    multipart_ptr(new multipart(request.query.query_map))
-  };
-  auto content_type = http::get_header(ctx.request.headers, "Content-Type");
-  auto content_length = http::get_header(ctx.request.headers, "Content-Length");
-  content_type->value = "multipart/form-data; boundary=" + ctx.mpart->boundary();
-  content_length->value_as(ctx.mpart->size());
-
+  context_ptr ctx(new context(
+      io_service_, request, chunked_callback, handler));
+  
   tcp::resolver::query query(
     url.host, 
     determine_service_v2(url));
-  // erase query map so that it won't be treat as GET params
-  ctx.request.query.query_map.clear();
-
-  context_ptr sp(new context(std::move(ctx)));
 
   resolver_.async_resolve( query,
-    boost::bind(&agent_base_v2::handle_resolve, this, _1, _2, sp));
+    boost::bind(&agent_base_v2::handle_resolve, this, _1, _2, ctx));
 }
 
 void agent_base_v2::handle_resolve(
@@ -264,7 +239,6 @@ void agent_base_v2::handle_read_headers(const boost::system::error_code& err,
       ctx_ptr->connection->socket().remote_endpoint(internal_err),
       ctx_ptr->response);
 #endif
-    //logger::instance().async_log("consumed", true, iter - beg);
     ctx_ptr->session->io_buffer.consume(iter - beg);
     diagnose_transmission(ctx_ptr);
   } else {
@@ -294,32 +268,33 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
       ec.assign(sys::errc::not_supported, sys::system_category());
       notify_error(ec, ctx_ptr);
     } else {
-      handle_read_chunk(ec, ctx_ptr);
+      read_chunk(ctx_ptr);
     }
-  } else { 
+  } else { // no transfer encoding field
     if(npos != (header = FIND_HEADER_("Content-Length"))) {
       ctx_ptr->expected_size = header->value_as<boost::int64_t>();
-    } else {
+    } else { // no content length
       if( npos != (header = FIND_HEADER_("Connection")) &&
           header->value == "close")
         ctx_ptr->expected_size = (boost::uint64_t)-1;
+      else
+        assert(false && "Unable to receive body.");
     }
-    assert(ctx_ptr->expected_size >= ctx_ptr->session->io_buffer.size());
-    ctx_ptr->expected_size -= ctx_ptr->session->io_buffer.size();
-    if( ctx_ptr->expected_size ) {
-      read_body(ctx_ptr);
-    } else {
-      notify_error(asio::error::eof, ctx_ptr);
-    }
+    read_body(ctx_ptr);
   }
 }
 
 void agent_base_v2::read_chunk(context_ptr ctx_ptr)
 {
   AGENT_TRACKING("agent_base_v2::read_chunk");
-  ctx_ptr->session->io_handler = boost::bind(
-    &agent_base_v2::handle_read_chunk, this, asio_ph::error, ctx_ptr);
-  ctx_ptr->connection->read_some(1, *ctx_ptr->session);
+  if( !ctx_ptr->session->io_buffer.size() ) {
+    ctx_ptr->session->io_handler = boost::bind(
+      &agent_base_v2::handle_read_chunk, this, asio_ph::error, ctx_ptr);
+    ctx_ptr->connection->read_some(1, *ctx_ptr->session);
+  } else {
+    sys::error_code ec;
+    handle_read_chunk(ec, ctx_ptr);
+  }
 }
 
 void agent_base_v2::handle_read_chunk(
@@ -356,6 +331,7 @@ void agent_base_v2::handle_read_chunk(
             beg = pos + 2;
           } else {
             if( '0' == *beg) {
+              ctx_ptr->session->io_buffer.consume(3);
               notify_error(asio::error::eof, ctx_ptr);
               return;
             }
@@ -391,9 +367,14 @@ void agent_base_v2::handle_read_chunk(
 void agent_base_v2::read_body(context_ptr ctx_ptr) 
 {
   AGENT_TRACKING("agent_base_v2::read_body");
-  ctx_ptr->session->io_handler = 
-    boost::bind(&agent_base_v2::handle_read_body, this, _1, _2, ctx_ptr);
-  ctx_ptr->connection->read_some(1, *ctx_ptr->session);
+  if(!ctx_ptr->session->io_buffer.size()) {
+    ctx_ptr->session->io_handler = 
+      boost::bind(&agent_base_v2::handle_read_body, this, _1, _2, ctx_ptr);
+    ctx_ptr->connection->read_some(1, *ctx_ptr->session);
+  } else {
+    sys::error_code ec;
+    handle_read_body(ec, ctx_ptr->session->io_buffer.size(), ctx_ptr);
+  }
 }
 
 void agent_base_v2::handle_read_body(
@@ -448,7 +429,7 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
     if( connect_policy->value == "close" )
       ctx_ptr->connection.reset();
     http::entity::url url(location->value);
-    async_get(url, ctx_ptr->request, ctx_ptr->chunked_callback, 
+    async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
               ctx_ptr->handler);
   } else { // we got a non-standard relative redirection that sucks!
     if(location->value[0] != '/')
@@ -464,7 +445,7 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
       if( connect_policy->value == "close" )
         ctx_ptr->connection.reset();
       http::entity::url url(cvt.str());
-      async_get(url, ctx_ptr->request, ctx_ptr->chunked_callback, 
+      async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
                 ctx_ptr->handler);
     }
   }

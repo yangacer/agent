@@ -13,14 +13,13 @@ void null_cb(
   boost::asio::const_buffer buf)
 {
   using namespace boost::asio;
-  std::cout << "null_cb\n";
   char const *data = buffer_cast<char const*>(buf);
   if(!ec) {
     std::cout.write(data, buffer_size(buf)); 
   } else if(ec == error::eof) {
     std::cout.write(data, buffer_size(buf)); 
   } else {
-    std::cout << ec.message() << "\n";
+    std::cout << "Error: " << ec.message() << "\n";
   }
 }
 
@@ -34,10 +33,8 @@ int main(int argc, char **argv)
 
   http::entity::url url = string(argv[1]);
   http::request req;
-  req.method = "GET";
-  req.query = url.query;
 
-  agent.async_get(url, req, true, 
+  agent.async_request(url, req, "GET", true, 
     boost::bind(&null_cb, _1,_2,_3,_4));
 
   ios.run();

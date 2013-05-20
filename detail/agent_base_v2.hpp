@@ -28,25 +28,21 @@ public:
   agent_base_v2(boost::asio::io_service &io_service);
   ~agent_base_v2();
 
-  void async_get(
+  void async_request(
     http::entity::url const &url,
-    http::request const &request, 
+    http::request request, 
+    std::string const &method,
     bool chunked_callback,
     handler_type handler);
 
-  void async_post_multipart(
-    http::entity::url const &url,
-    http::request const &request,
-    bool chunked_callback,
-    handler_type handler);
-  /*
-  void async_abort();
-  boost::asio::io_service& io_service();
-  */
 protected:
 
   struct context
   {
+    context(boost::asio::io_service &ios, 
+            http::request const &request,
+            bool chunked_callback,
+            handler_type const &handler);
     ~context();
     http::request request;
     http::response response;

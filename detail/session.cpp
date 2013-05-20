@@ -13,7 +13,6 @@ session_type::session_type(boost::asio::io_service &io_service)
   : timer(io_service)  
 {
   AGENT_TRACKING("session_type::ctor");
-  io_buffer.prepare(AGENT_CONNECTION_BUFFER_SIZE);
 }
 
 session_type::~session_type()

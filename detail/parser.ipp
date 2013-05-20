@@ -69,7 +69,7 @@ field<Iterator>::field()
   char const cr('\r');
 
   start %= 
-    +((alpha | char_('-')) - ':' ) >> lit(": ") >>  
+    +(char_ - ( lit(":") | qi::space )) >> lit(": ") >>  
     +(char_ - cr);
 
   GAISWT_DEBUG_PARSER_GEN("field");
