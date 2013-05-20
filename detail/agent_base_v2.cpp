@@ -170,6 +170,8 @@ void agent_base_v2::handle_write_request(
     if(ctx_ptr->mpart && !ctx_ptr->mpart->eof()) {
       // read data from multipart 
       ctx_ptr->mpart->read(ctx_ptr->session->io_buffer, 4096);
+      char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
+      logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
     } 
     if( ctx_ptr->session->io_buffer.size() ) { // more data to send
       ctx_ptr->session->io_handler = boost::bind(
@@ -240,6 +242,8 @@ void agent_base_v2::handle_read_headers(const boost::system::error_code& err,
       ctx_ptr->response);
 #endif
     ctx_ptr->session->io_buffer.consume(iter - beg);
+    char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
+    logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
     diagnose_transmission(ctx_ptr);
   } else {
     notify_error(err, ctx_ptr);

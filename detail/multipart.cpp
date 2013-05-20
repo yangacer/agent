@@ -40,8 +40,9 @@ multipart::multipart(http::entity::query_map_t const &query_map)
       p.text << field("Content-Disposition", 
                       "form-data; name=\"" + i->first + "\"");
       p.text << CRLF;
-      http::generator::ostream_iterator out_iter(p.text);
-      http::generator::generate_query_value(out_iter, i->second);
+      //http::generator::ostream_iterator out_iter(p.text);
+      //http::generator::generate_query_value(out_iter, i->second);
+      p.text << boost::get<std::string>(i->second);
       p.text << CRLF;
       size_ += p.text.str().size();
     } else {
@@ -59,7 +60,8 @@ multipart::multipart(http::entity::query_map_t const &query_map)
         i->first.substr(1) <<
         "\"; filename=\"" << partial_name << "\""
         ;
-      p.text << field("Content-Disposition", dpos.str()) << CRLF;
+      p.text << field("Content-Disposition", dpos.str()) <<
+        field("Content-Type", "application/octet-stream") << CRLF;
       // TODO content-type
       size_ += p.text.str().size();
       struct stat sb;
