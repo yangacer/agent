@@ -62,13 +62,14 @@ template<typename Iterator>
 field<Iterator>::field()
 : field::base_type(start)
 {
+  using qi::alpha;
   using qi::char_;
   using qi::lit;
 
   char const cr('\r');
 
   start %= 
-    +(char_ - ':') >> lit(": ") >>  
+    +((alpha | char_('-')) - ':' ) >> lit(": ") >>  
     +(char_ - cr);
 
   GAISWT_DEBUG_PARSER_GEN("field");

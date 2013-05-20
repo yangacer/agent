@@ -248,8 +248,10 @@ void agent_base_v2::handle_read_headers(const boost::system::error_code& err,
   if (!err) {
     // Process the response headers.
     auto beg(asio::buffers_begin(ctx_ptr->session->io_buffer.data())), 
-         end(asio::buffers_end(ctx_ptr->session->io_buffer.data()));
-    if(!parse_header_list(beg, end, ctx_ptr->response.headers)) {
+         end(asio::buffers_end(ctx_ptr->session->io_buffer.data())),
+         iter(beg);
+
+    if(!parse_header_list(iter, end, ctx_ptr->response.headers)) {
       sys::error_code ec(sys::errc::bad_message, 
                          sys::system_category());
       notify_error(ec, ctx_ptr);
@@ -262,8 +264,8 @@ void agent_base_v2::handle_read_headers(const boost::system::error_code& err,
       ctx_ptr->connection->socket().remote_endpoint(internal_err),
       ctx_ptr->response);
 #endif
-    ctx_ptr->session->io_buffer.consume(
-      beg - asio::buffers_begin(ctx_ptr->session->io_buffer.data()));
+    //logger::instance().async_log("consumed", true, iter - beg);
+    ctx_ptr->session->io_buffer.consume(iter - beg);
     diagnose_transmission(ctx_ptr);
   } else {
     notify_error(err, ctx_ptr);
@@ -286,14 +288,13 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
   // TODO Content-Range handling
   
   if(npos != (header = FIND_HEADER_("Transfer-Encoding"))) {
+    sys::error_code ec;
     if( !ctx_ptr->chunked_callback ) {
       // XXX Sorry for this.
-      sys::error_code ec(sys::errc::not_supported,
-                         sys::system_category());
+      ec.assign(sys::errc::not_supported, sys::system_category());
       notify_error(ec, ctx_ptr);
     } else {
-      // FIXME Check has been received
-      read_chunk(ctx_ptr);
+      handle_read_chunk(ec, ctx_ptr);
     }
   } else { 
     if(npos != (header = FIND_HEADER_("Content-Length"))) {
@@ -500,14 +501,17 @@ void agent_base_v2::notify_chunk(
 void agent_base_v2::notify_error(boost::system::error_code const &err,
                                  context_ptr ctx_ptr)
 {
-  AGENT_TRACKING("agent_base_v2::notify_error");
+  AGENT_TRACKING("agent_base_v2::notify_error (" + err.message() + ")");
   boost::system::error_code ec(err);
   if(ctx_ptr->is_redirecting) {
     redirect(ctx_ptr);
     ctx_ptr->response.clear();
   } else {
-    ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, asio::const_buffer());
-    ctx_ptr.reset();
+    char const *data = asio::buffer_cast<char const*>(ctx_ptr->session->io_buffer.data());
+    asio::const_buffer chunk(data, ctx_ptr->session->io_buffer.size());
+    ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, chunk);
+    // XXX reset context causes unable to reuse connection
+    ctx_ptr.reset(); 
   }
 }
 
