@@ -50,7 +50,6 @@ protected:
     bool chunked_callback;
     boost::uintmax_t expected_size;
     bool is_redirecting;
-    connection_ptr  connection;
     session_ptr   session;
     handler_type  handler;
     multipart_ptr mpart;
@@ -83,8 +82,10 @@ protected:
                     context_ptr ctx_ptr);
   void notify_error(boost::system::error_code const &err, 
                     context_ptr ctx_ptr);
-private:
+
   boost::asio::io_service   &io_service_;
+private:
+  connection_ptr            connection_;
   tcp::resolver             resolver_;
 };
 

@@ -11,6 +11,7 @@ set ( AGENT_SRC
   session.cpp
   agent_base.cpp
   agent_base_v2.cpp
+  agent_v2.cpp
   agent.cpp)
 #agency_base.cpp
 # agency.cpp)

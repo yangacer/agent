@@ -1,7 +1,7 @@
 #include <string>
 #include <iostream>
 #include <boost/bind.hpp>
-#include "detail/agent_base_v2.hpp"
+#include "agent/agent_v2.hpp"
 #include "agent/version.hpp"
 #include "agent/log.hpp"
 
@@ -62,7 +62,7 @@ private:
   boost::asio::io_service &io_service_;
   //std::string nucs_host_;
   http::request request_;
-  agent_base_v2 agent_;
+  agent_v2 agent_;
 };
 
 int main(int argc, char **argv)

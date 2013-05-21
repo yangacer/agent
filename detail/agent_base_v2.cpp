@@ -1,4 +1,4 @@
-#include "detail/agent_base_v2.hpp"
+#include "agent/agent_base_v2.hpp"
 #include <string>
 #include <sstream>
 #include <cstring>
@@ -115,9 +115,9 @@ void agent_base_v2::handle_resolve(
 {
   sys::error_code internal_err;
   if(!err && endpoint != tcp::resolver::iterator() ) {
-    if( ctx_ptr->connection && ctx_ptr->connection->is_open() &&
+    if( connection_ && connection_->is_open() &&
         endpoint->endpoint() ==
-        ctx_ptr->connection->socket().remote_endpoint(internal_err))
+        connection_->socket().remote_endpoint(internal_err))
     {
       AGENT_TRACKING("agent_base::handle_resolve(reuse) " + 
                      endpoint->endpoint().address().to_string());
@@ -128,10 +128,10 @@ void agent_base_v2::handle_resolve(
     } else {
       AGENT_TRACKING("agent_base_v2::handle_resolve(reconnect) " + 
                      endpoint->endpoint().address().to_string());
-      ctx_ptr->connection.reset(new connection(io_service_));
+      connection_.reset(new connection(io_service_));
       ctx_ptr->session->connect_handler =
         boost::bind(&agent_base_v2::handle_connect, this, _1, ctx_ptr);
-      ctx_ptr->connection->connect(endpoint, *(ctx_ptr->session));
+      connection_->connect(endpoint, *(ctx_ptr->session));
     } 
   }else {
     notify_error(err, ctx_ptr);
@@ -148,7 +148,7 @@ void agent_base_v2::handle_connect(
     boost::system::error_code error;
     logger::instance().async_log(
       "request headers", true, 
-      ctx_ptr->connection->socket().remote_endpoint(error),
+      connection_->socket().remote_endpoint(error),
       ctx_ptr->request);
 #endif
     std::ostream os(&ctx_ptr->session->io_buffer);
@@ -170,18 +170,18 @@ void agent_base_v2::handle_write_request(
     if(ctx_ptr->mpart && !ctx_ptr->mpart->eof()) {
       // read data from multipart 
       ctx_ptr->mpart->read(ctx_ptr->session->io_buffer, 4096);
-      char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
-      logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
+      //char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
+      //logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
     } 
     if( ctx_ptr->session->io_buffer.size() ) { // more data to send
       ctx_ptr->session->io_handler = boost::bind(
         &agent_base_v2::handle_write_request, this,
         asio_ph::error, asio_ph::bytes_transferred, ctx_ptr);
-      ctx_ptr->connection->write(*ctx_ptr->session);
+      connection_->write(*ctx_ptr->session);
     } else {
       ctx_ptr->session->io_handler = boost::bind(
         &agent_base_v2::handle_read_status_line, this, _1, ctx_ptr);
-      ctx_ptr->connection->read_until("\r\n", 512, *ctx_ptr->session);
+      connection_->read_until("\r\n", 512, *ctx_ptr->session);
     }
   } else {
     notify_error(err, ctx_ptr);
@@ -210,7 +210,7 @@ void agent_base_v2::handle_read_status_line(
     ctx_ptr->session->io_handler = boost::bind(
       &agent_base_v2::handle_read_headers, this, _1, ctx_ptr);
     // Read the response headers, which are terminated by a blank line.
-    ctx_ptr->connection->read_until("\r\n\r\n", 4096, *ctx_ptr->session);
+    connection_->read_until("\r\n\r\n", 4096, *ctx_ptr->session);
   } else {
     notify_error(err, ctx_ptr);
   }
@@ -238,12 +238,12 @@ void agent_base_v2::handle_read_headers(const boost::system::error_code& err,
     sys::error_code internal_err;
     logger::instance().async_log(
       "response headers", true, 
-      ctx_ptr->connection->socket().remote_endpoint(internal_err),
+      connection_->socket().remote_endpoint(internal_err),
       ctx_ptr->response);
 #endif
     ctx_ptr->session->io_buffer.consume(iter - beg);
-    char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
-    logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
+    //char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
+    //logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
     diagnose_transmission(ctx_ptr);
   } else {
     notify_error(err, ctx_ptr);
@@ -294,7 +294,7 @@ void agent_base_v2::read_chunk(context_ptr ctx_ptr)
   if( !ctx_ptr->session->io_buffer.size() ) {
     ctx_ptr->session->io_handler = boost::bind(
       &agent_base_v2::handle_read_chunk, this, asio_ph::error, ctx_ptr);
-    ctx_ptr->connection->read_some(1, *ctx_ptr->session);
+    connection_->read_some(1, *ctx_ptr->session);
   } else {
     sys::error_code ec;
     handle_read_chunk(ec, ctx_ptr);
@@ -358,7 +358,7 @@ void agent_base_v2::handle_read_chunk(
   } else {
     // XXX This case is caused by user manually abort
     // agent operation.
-    if( ctx_ptr->connection && !ctx_ptr->connection->is_open() && 
+    if( connection_ && !connection_->is_open() && 
         err == asio::error::bad_descriptor ) 
     {
       notify_error(asio::error::operation_aborted, ctx_ptr);
@@ -374,7 +374,7 @@ void agent_base_v2::read_body(context_ptr ctx_ptr)
   if(!ctx_ptr->session->io_buffer.size()) {
     ctx_ptr->session->io_handler = 
       boost::bind(&agent_base_v2::handle_read_body, this, _1, _2, ctx_ptr);
-    ctx_ptr->connection->read_some(1, *ctx_ptr->session);
+    connection_->read_some(1, *ctx_ptr->session);
   } else {
     sys::error_code ec;
     handle_read_body(ec, ctx_ptr->session->io_buffer.size(), ctx_ptr);
@@ -398,7 +398,7 @@ void agent_base_v2::handle_read_body(
     } 
     // XXX This case is caused by user manually abort
     // agent operation.
-    else if( ctx_ptr->connection && !ctx_ptr->connection->is_open() && 
+    else if( connection_ && !connection_->is_open() && 
              err == asio::error::bad_descriptor) 
     {
       notify_error(asio::error::operation_aborted, ctx_ptr);
@@ -431,7 +431,7 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
       location->value.find("https://") == 0 ) 
   {
     if( connect_policy->value == "close" )
-      ctx_ptr->connection.reset();
+      connection_.reset();
     http::entity::url url(location->value);
     async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
               ctx_ptr->handler);
@@ -440,14 +440,14 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
       location->value.insert(0, "/");
     std::stringstream cvt;
     cvt << "http://" << 
-      ctx_ptr->connection->socket().remote_endpoint(http_err) << 
+      connection_->socket().remote_endpoint(http_err) << 
       location->value;
     if(http_err) {
       ctx_ptr->is_redirecting = false;
       notify_error(http_err, ctx_ptr);
     } else {
       if( connect_policy->value == "close" )
-        ctx_ptr->connection.reset();
+        connection_.reset();
       http::entity::url url(cvt.str());
       async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
                 ctx_ptr->handler);
@@ -495,8 +495,10 @@ void agent_base_v2::notify_error(boost::system::error_code const &err,
     char const *data = asio::buffer_cast<char const*>(ctx_ptr->session->io_buffer.data());
     asio::const_buffer chunk(data, ctx_ptr->session->io_buffer.size());
     ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, chunk);
-    // XXX reset context causes unable to reuse connection
-    ctx_ptr.reset(); 
+    auto connect_policy = http::find_header(ctx_ptr->request.headers, "Connection");
+    if( connect_policy->value == "close" )
+      connection_.reset();
+    ctx_ptr.reset();
   }
 }
 
