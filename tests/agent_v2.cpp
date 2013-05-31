@@ -1,5 +1,6 @@
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <boost/bind.hpp>
 #include "agent/agent_v2.hpp"
 #include "agent/version.hpp"
@@ -31,30 +32,38 @@ struct uploader
   void start(std::string const &file)
   {
     using namespace std;
-    http::entity::url url("http://127.0.0.1:8000/1Path/CreateFile");
     std::string pname = file.substr(file.find_last_of("/") +1);
+    std::stringstream literal_url;
 
-    url.query.query_map.insert(make_pair("partial_name", pname));
-    url.query.query_map.insert(make_pair("@file", file));
-    url.query.query_map.insert(make_pair("file_atime", string("2013-05-20T07:40:47.448")));
-    url.query.query_map.insert(make_pair("file_ctime", string("2013-05-20T07:40:47.448")));
-    url.query.query_map.insert(make_pair("file_mtime", string("2013-05-20T07:40:47.448")));
+    literal_url << "http://127.0.0.1:8000/1Path/CreateFile?" <<
+      "partial_name=" << pname << 
+      "&%40file=" << file <<
+      "&file_atime=" << "2013-05-20T07%3A40%3A47.448" <<
+      "&file_mtime=" << "2013-05-20T07%3A40%3A47.448" <<
+      "&file_ctime=" << "2013-05-20T07%3A40%3A47.448"
+      ;
 
+    http::entity::url url(literal_url.str());
+    boost::shared_ptr<string> accumulated(new string);;
     agent_.async_request(
       url, request_, "POST", true, 
-      boost::bind(&uploader::handle_post, this, _1, _2, _3, _4));
+      boost::bind(&uploader::handle_post, this, _1, _2, _3, _4, accumulated));
   }
 
   void handle_post(
     boost::system::error_code const &ec,
     http::request const &req, http::response const &resp,
-    boost::asio::const_buffer buf)
+    boost::asio::const_buffer buf,
+    boost::shared_ptr<std::string> accumulated)
   {
-    if(!ec || boost::asio::error::eof == ec) {
-      char const *data = boost::asio::buffer_cast<char const*>(buf);
-      std::cout.write(data, buffer_size(buf)); 
-    } else {
+    if(ec && ec != boost::asio::error::eof) {
       std::cerr << "Error: " << ec.message() << "\n";
+      return;
+    }
+    char const *data = boost::asio::buffer_cast<char const*>(buf);
+    accumulated->append(data, boost::asio::buffer_size(buf));
+    if( ec == boost::asio::error::eof ) {
+      std::cout << *accumulated;
     }
   }
 
@@ -65,15 +74,52 @@ private:
   agent_v2 agent_;
 };
 
+struct login
+{
+  login(boost::asio::io_service &ios)
+    : agent_(ios)
+    {}
+ 
+  void start()
+  {
+    http::entity::url url("http://10.0.0.185:8000/Node/User/Auth");
+    http::request req;
+  
+    url.query.query_map.insert(std::make_pair("name","admin"));
+    url.query.query_map.insert(std::make_pair("password","admin"));
+
+    agent_.async_request(url, req, "GET", true, 
+                         boost::bind(&login::handle_login, this, _1, _2, _3, _4));
+  }
+
+  void handle_login(
+    boost::system::error_code const &ec,
+    http::request const &req, http::response const &resp,
+    boost::asio::const_buffer buf)
+  {
+    if(!ec || ec == boost::asio::error::eof ) {
+      char const *data = boost::asio::buffer_cast<char const*>(buf);
+      std::cout.write(data, boost::asio::buffer_size(buf));
+    }
+
+    if(ec == boost::asio::error::eof )
+      std::cout << resp << "\n";
+  }
+
+  agent_v2 agent_;
+};
+
 int main(int argc, char **argv)
 {
   using namespace std;
-  logger::instance().use_file("/dev/stderr");
+  logger::instance().use_file("agent_v2.log");
 
   boost::asio::io_service ios;
-  uploader upd(ios);
+  //uploader upd(ios);
+  login lin(ios);
 
-  upd.start(argv[1]);
+  lin.start();
+  //upd.start(argv[1]);
 
   ios.run();
   return 0;
