@@ -495,7 +495,7 @@ void agent_base_v2::notify_error(boost::system::error_code const &err,
     char const *data = asio::buffer_cast<char const*>(ctx_ptr->session->io_buffer.data());
     asio::const_buffer chunk(data, ctx_ptr->session->io_buffer.size());
     ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, chunk);
-    auto connect_policy = http::find_header(ctx_ptr->request.headers, "Connection");
+    auto connect_policy = http::find_header(ctx_ptr->reponse.headers, "Connection");
     if( connect_policy->value == "close" )
       connection_.reset();
     ctx_ptr.reset();
