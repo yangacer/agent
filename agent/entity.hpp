@@ -101,7 +101,6 @@ typedef entity::request request;
 
 } // namespace http
 
-std::ostream & operator << (std::ostream &os, http::entity::query_value_t const &v);
 std::ostream & operator << (std::ostream &os, http::entity::field const &f);
 std::ostream & operator << (std::ostream &os, http::entity::request const &req);
 std::ostream & operator << (std::ostream &os, http::entity::response const &rep);

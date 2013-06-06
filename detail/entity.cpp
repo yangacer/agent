@@ -115,13 +115,6 @@ get_header(std::vector<entity::field>& headers, std::string const& name)
 
 } // namespace http
 
-std::ostream & operator << (std::ostream &os, http::entity::query_value_t const &v)
-{
-  http::generator::ostream_iterator out(os);
-  http::generator::generate_query_value(out, v);
-  return os;
-}
-
 std::ostream & operator << (std::ostream &os, http::entity::field const &f)
 {
   os << f.name << ": " << f.value << "\r\n";
