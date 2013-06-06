@@ -40,13 +40,11 @@ multipart::multipart(http::entity::query_map_t const &query_map)
       p.text << field("Content-Disposition", 
                       "form-data; name=\"" + i->first + "\"");
       p.text << CRLF;
-      //http::generator::ostream_iterator out_iter(p.text);
-      //http::generator::generate_query_value(out_iter, i->second);
-      p.text << boost::get<std::string>(i->second);
+      p.text << i->second;
       p.text << CRLF;
       size_ += p.text.str().size();
     } else {
-      std::string 
+      std::string
         full_name = boost::get<std::string>(i->second),
         partial_name;
       auto pos = full_name.find_last_of(PATH_DELIM);
