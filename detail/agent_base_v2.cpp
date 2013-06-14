@@ -371,7 +371,7 @@ void agent_base_v2::handle_read_chunk(
 void agent_base_v2::read_body(context_ptr ctx_ptr) 
 {
   AGENT_TRACKING("agent_base_v2::read_body");
-  if(!ctx_ptr->session->io_buffer.size()) {
+  if(!ctx_ptr->session->io_buffer.size() && ctx_ptr->expected_size ) {
     ctx_ptr->session->io_handler = 
       boost::bind(&agent_base_v2::handle_read_body, this, _1, _2, ctx_ptr);
     connection_->read_some(1, *ctx_ptr->session);
