@@ -291,7 +291,7 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
 void agent_base_v2::read_chunk(context_ptr ctx_ptr)
 {
   AGENT_TRACKING("agent_base_v2::read_chunk");
-  if( !ctx_ptr->session->io_buffer.size() ) {
+  if( ctx_ptr->session->io_buffer.size() <= 3) {
     ctx_ptr->session->io_handler = boost::bind(
       &agent_base_v2::handle_read_chunk, this, asio_ph::error, ctx_ptr);
     connection_->read_some(1, *ctx_ptr->session);
