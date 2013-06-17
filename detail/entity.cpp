@@ -30,6 +30,11 @@ request::request()
   header->value = ustr;
 }
 
+response::response()
+  : http_version_major(0), http_version_minor(0),
+  status_code(0)
+{}
+
 void request::clear()
 {
   method.clear();
