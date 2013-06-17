@@ -73,6 +73,7 @@ struct request
 
 struct response
 {
+  response();
   int http_version_major,
       http_version_minor;
 
