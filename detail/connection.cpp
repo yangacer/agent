@@ -83,8 +83,8 @@ void connection::connect(resolver::iterator endpoint,
     asio::async_connect(socket_, endpoint, 
                         GENERIC_BIND_(&connection::handle_connect));
   }
-  SET_TIMER_(session.quality_config.connect(), 
-             &connection::handle_connect_timeout);
+  // SET_TIMER_(session.quality_config.connect(), 
+  //           &connection::handle_connect_timeout);
 }
 
 void connection::handle_secured_connect(
@@ -98,8 +98,8 @@ void connection::handle_secured_connect(
       asio::ssl::stream_base::client, 
       GENERIC_BIND_(&connection::handle_connect));
     
-    SET_TIMER_(session.quality_config.connect(), 
-                &connection::handle_connect_timeout);
+    //SET_TIMER_(session.quality_config.connect(), 
+    //            &connection::handle_connect_timeout);
   } else {
     io_service_.post(boost::bind(session.connect_handler, err));
     session.connect_handler = connect_handler_type();
@@ -153,8 +153,8 @@ void connection::read_until(char const* pattern, boost::uint32_t at_most, sessio
       IO_BIND_(&connection::handle_read, 0));
   }
   // FIXME this timer can not be canceled in time
-  SET_TIMER_(session.quality_config.read_num_bytes(at_most),
-             &connection::handle_io_timeout);
+  //SET_TIMER_(session.quality_config.read_num_bytes(at_most),
+  //           &connection::handle_io_timeout);
 }
 
 void connection::handle_read(
@@ -189,8 +189,8 @@ void connection::write(session_type &session)
       socket_, session.io_buffer, 
       IO_BIND_(&connection::handle_write, 0));
   }
-  SET_TIMER_(session.quality_config.write_num_bytes(session.io_buffer.size()),
-             &connection::handle_io_timeout);
+  // SET_TIMER_(session.quality_config.write_num_bytes(session.io_buffer.size()),
+  //           &connection::handle_io_timeout);
 }
 
 void connection::write(session_type &session, boost::asio::const_buffer buffer)
@@ -206,8 +206,8 @@ void connection::write(session_type &session, boost::asio::const_buffer buffer)
       socket_, buf, 
       IO_BIND_(&connection::handle_write, 0));
   }
-  SET_TIMER_(session.quality_config.write_num_bytes(asio::buffer_size(buf)),
-             &connection::handle_io_timeout);
+  // SET_TIMER_(session.quality_config.write_num_bytes(asio::buffer_size(buf)),
+  //           &connection::handle_io_timeout);
 }
 
 void connection::handle_write(

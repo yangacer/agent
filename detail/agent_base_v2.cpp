@@ -181,7 +181,7 @@ void agent_base_v2::handle_write_request(
     } else {
       ctx_ptr->session->io_handler = boost::bind(
         &agent_base_v2::handle_read_status_line, this, _1, ctx_ptr);
-      connection_->read_until("\r\n", 512, *ctx_ptr->session);
+      connection_->read_until("\r\n", 2048, *ctx_ptr->session);
     }
   } else {
     notify_error(err, ctx_ptr);
