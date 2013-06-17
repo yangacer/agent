@@ -499,6 +499,10 @@ void agent_base_v2::notify_error(boost::system::error_code const &err,
     if( connect_policy != ctx_ptr->response.headers.end() &&
         connect_policy->value == "close" )
       connection_.reset();
+    if( ctx_ptr->response.status_code >= 500 &&
+        ctx_ptr->response.status_code < 600 )
+      connection_.reset();
+      
     ctx_ptr.reset();
   }
 }
