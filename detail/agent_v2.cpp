@@ -20,3 +20,8 @@ void agent_v2::async_request(
       chunked_callback,
       handler));
 }
+
+boost::asio::io_service &agent_v2::io_service()
+{
+  return agent_base_v2::io_service();
+}

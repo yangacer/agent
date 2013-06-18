@@ -159,6 +159,11 @@ void agent_base_v2::handle_connect(
   }
 }
 
+boost::asio::io_service &agent_base_v2::io_service()
+{
+  return io_service_;
+}
+
 void agent_base_v2::handle_write_request(
   boost::system::error_code const &err,
   boost::uint32_t length,
@@ -496,13 +501,14 @@ void agent_base_v2::notify_error(boost::system::error_code const &err,
     asio::const_buffer chunk(data, ctx_ptr->session->io_buffer.size());
     ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, chunk);
     auto connect_policy = http::find_header(ctx_ptr->response.headers, "Connection");
+    
     if( connect_policy != ctx_ptr->response.headers.end() &&
         connect_policy->value == "close" )
       connection_.reset();
-    if( ctx_ptr->response.status_code >= 500 &&
-        ctx_ptr->response.status_code < 600 )
+
+    if( err != asio::error::eof )
       connection_.reset();
-      
+          
     ctx_ptr.reset();
   }
 }

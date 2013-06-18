@@ -35,6 +35,7 @@ public:
     bool chunked_callback,
     handler_type handler);
 
+  boost::asio::io_service &io_service();
 protected:
 
   struct context

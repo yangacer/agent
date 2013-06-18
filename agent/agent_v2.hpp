@@ -35,6 +35,8 @@ public:
     std::string const &method,
     bool chunked_callback,
     handler_type handler);
+
+  boost::asio::io_service& io_service();
 };
 
 
