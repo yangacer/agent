@@ -103,9 +103,15 @@ struct request_first_line
 
 GEN_PARSE_FN(response_first_line)
 GEN_PARSE_FN(request_first_line)
-GEN_PARSE_FN(header_list)
 GEN_PARSE_FN(uri)
 GEN_PARSE_FN(url)
+
+template<typename Iter, typename Struct>
+bool parse_header_list(Iter &beg, Iter &end, Struct &obj)
+{
+  header_list<Iter> parser;
+  return qi::phrase_parse(beg, end, parser, qi::blank, obj);
+}
 
 template<typename Iter, typename Struct> 
 bool parse_url_esc_string(Iter &beg, Iter &end, Struct &obj) 

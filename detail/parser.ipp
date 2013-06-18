@@ -69,9 +69,9 @@ field<Iterator>::field()
   char const cr('\r');
 
   start %= 
-    +(char_ - ( lit(":") | qi::space )) >> lit(": ") >>  
-    +(char_ - cr);
-
+    +(char_ - ( lit(":") | qi::space )) >> 
+    lit(": ") >> +(char_ - cr)
+    ;
   GAISWT_DEBUG_PARSER_GEN("field");
 }
 
@@ -82,10 +82,10 @@ header_list<Iterator>::header_list()
   using qi::lit;
   char const *crlf("\r\n");
 
-  start %=
-    +(field_rule >> lit(crlf))
-      ;
-
+  start %= qi::no_skip[ 
+    (field_rule % crlf) 
+    ] >> crlf >> crlf
+    ;
   GAISWT_DEBUG_PARSER_GEN("header_list");
 }
 
