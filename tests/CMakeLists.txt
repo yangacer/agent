@@ -4,7 +4,7 @@ set( test_targets
      range_request
      agent_v2
      multipart
-     parser)
+     httparser)
 
 set( example_targets tube )
   #agency)
