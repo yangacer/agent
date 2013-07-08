@@ -26,7 +26,7 @@ if(MSVC)
   set (Boost_USE_STATIC_LIBS ON)
   set (Boost_USE_STATIC_RUNTIME ON)
   set (Boost_USE_MULTITHREADED ON)
-  add_definitions ( -D_WIN32_WINNT=0x0501 -DMP )
+  add_definitions ( -D_WIN32_WINNT=0x0501 )
 endif()
 
 include_directories (${PROJECT_SOURCE_DIR})
