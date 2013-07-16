@@ -4,6 +4,8 @@
 #include <fstream>
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
+#include "libarchive/archive.h"
+#include "libarchive/archive_entry.h"
 
 logger_impl::logger_impl()
 {
@@ -68,7 +70,9 @@ void logger_impl::use_file(std::string const &filename, boost::uint32_t max_size
     generation_ = 1;
   } else {
     delete fb;
+#ifndef _NDEBUG
     throw std::runtime_error("open log file failed");
+#endif
   }
 }
 
@@ -99,14 +103,50 @@ void logger_impl::rotate()
       os_->rdbuf(fb);
     else {
       delete fb;
+#ifndef _NDEBUG
       throw std::runtime_error("open log file failed");
+#endif 
     }
+    if ( generation_ > 32 ) archive();
   }
 }
 
 void logger_impl::archive()
 {
-  
+  using namespace std;
+  using boost::shared_ptr;
+
+  // initialize libarchive handle
+  shared_ptr<struct archive> ar(archive_write_new(), &archive_write_free);
+  if( !ar ||  
+      ARCHIVE_FATAL == archive_write_set_format_pax_restricted(ar.get()) ||
+      ARCHIVE_FATAL == archive_write_add_filter_gzip(ar.get())  ||
+      ARCHIVE_FATAL == archive_write_open_filename(ar.get(), (file_ + ".tgz").c_str())
+    )
+  {
+    return;
+  }
+  // initaialize archive entry
+  shared_ptr<archive_entry> ar_entry(archive_entry_new(), &archive_entry_free);
+  if(!ar_entry) return;
+  char buf[8192];
+  for(int suffix = 1; suffix < generation_ ; ++suffix) {
+    string filename = file_ + "." + boost::lexical_cast<string>(suffix);
+    struct stat sb;
+    stat(filename.c_str(), &sb);
+    archive_entry_copy_stat(ar_entry.get(), &sb);
+    archive_entry_set_pathname(ar_entry.get(), filename.c_str());
+    archive_entry_set_filetype(ar_entry.get(), AE_IFREG);
+    archive_write_header(ar.get(), ar_entry.get());
+    ifstream fin(filename.c_str(), ios::in | ios::binary);
+    while(fin.read(buf, sizeof(buf))) 
+      archive_write_data(ar.get(), buf, (size_t)fin.gcount());
+    fin.close();
+    remove(filename.c_str());
+    archive_entry_clear(ar_entry.get());
+  }
+  archive_write_close(ar.get());
+  generation_ = 1;
 }
 
 void logger_impl::run()
