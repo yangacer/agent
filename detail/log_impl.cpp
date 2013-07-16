@@ -4,6 +4,7 @@
 #include <fstream>
 #include <boost/bind.hpp>
 #include <boost/lexical_cast.hpp>
+#define   _WIN32_WINNT 0x0501
 #include "libarchive/archive.h"
 #include "libarchive/archive_entry.h"
 

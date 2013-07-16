@@ -8,6 +8,7 @@
     mkdir build
     cd build
     cmake .. -DCMAKE_PREFIX_PATH=/path/to/include -DCMAKE_INSTALL_PREFIX=/path/for/install
+    make zlib # Due to library dependencies, we have to build zlib first.
     make install  # administrator privilege may be required
 
 #Examples
