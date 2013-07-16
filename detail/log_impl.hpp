@@ -19,6 +19,7 @@ public:
   void run();
 protected:
   void rotate();
+  void archive();
 private:
   boost::mutex mutex_;
   boost::mutex work_mutex_;

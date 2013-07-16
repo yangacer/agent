@@ -24,5 +24,24 @@ endforeach()
 
 foreach( example IN LISTS example_targets )
   add_executable ( ${example} ${example}.cpp )
+  set_target_properties ( ${example} PROPERTIES COMPILE_DEFINITIONS "_WIN32_WINNT=0x0501")
   target_link_libraries ( ${example} agent )
 endforeach()
+
+find_package ( Boost REQUIRED COMPONENTS
+               filesystem
+               system )
+
+include_directories ( 
+  ${PROJECT_BINARY_DIR}/contrib/zlib-1.2.8
+  ${PROJECT_SOURCE_DIR}/contrib/zlib-1.2.8/include
+  ${PROJECT_SOURCE_DIR}/contrib/libarchive-3.1.2/libarchive
+  ${Boost_INCLUDE_DIRS} )
+
+link_directories ( 
+  ${PROJECT_BINARY_DIR}/contrib/zlib-1.2.8
+  ${PROJECT_BINARY_DIR}/contrib/libarchive-3.1.2)
+
+add_executable ( arv archive.cpp )
+target_link_libraries ( arv archive ${Boost_LIBRARIES} zlib)
+

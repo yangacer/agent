@@ -104,6 +104,11 @@ void logger_impl::rotate()
   }
 }
 
+void logger_impl::archive()
+{
+  
+}
+
 void logger_impl::run()
 {
   // XXX It's tricky to setup a lock here. Though, this is the

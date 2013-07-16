@@ -17,6 +17,8 @@ string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.[0-9]+(.*)" "\\1" VERSION_SHA1 "${VERS
 set(VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 set(VERSION_FULL "${VERSION}${VERSION_SHA1}")
 
+message ("Agent version: ${VERSION_FULL}")
+
 configure_file( detail/version.cpp.in ${PROJECT_SOURCE_DIR}/detail/version.cpp )
 
 
@@ -26,10 +28,9 @@ if(MSVC)
   set (Boost_USE_STATIC_LIBS ON)
   set (Boost_USE_STATIC_RUNTIME ON)
   set (Boost_USE_MULTITHREADED ON)
-  add_definitions ( -D_WIN32_WINNT=0x0501 )
 endif()
 
-include_directories (${PROJECT_SOURCE_DIR})
+include_directories ( ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/contrib )
 
 set (Boost_ADDITIONAL_VERSIONS "1.52" "1.52.0" "1.53" "1.53.0")
 find_package ( Boost REQUIRED COMPONENTS 
@@ -49,5 +50,11 @@ endif()
 
 ENABLE_TESTING()
 
+add_subdirectory ( contrib/zlib-1.2.8 )
+set ( ZLIB_INCLUDE_DIR
+      ${PROJECT_SOURCE_DIR}/contrib/zlib-1.2.8;${PROJECT_BINARY_DIR}/contrib/zlib-1.2.8 )
+set ( ZLIB_LIBRARY ${PROJECT_BINARY_DIR}/contrib/zlib-1.2.8/zlib.lib )
+add_subdirectory ( contrib/libarchive-3.1.2 )
 add_subdirectory ( detail )
 add_subdirectory ( tests )
+
