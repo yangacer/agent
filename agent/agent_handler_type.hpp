@@ -13,5 +13,18 @@ typedef boost::function<
     http::response const &, 
     boost::asio::const_buffer buffer)
   > agent_handler_type;
+
+enum agent_conn_action_t
+{
+  upstream = 0,
+  downstream
+};
+
+typedef boost::function<
+  void(agent_conn_action_t, // connection action
+       boost::uintmax_t,    // total transfered (0 if unknown)
+       boost::uint32_t)     // bytes transfered
+  > agent_monitor_type;
+
 // TODO add agent& to interface
 #endif

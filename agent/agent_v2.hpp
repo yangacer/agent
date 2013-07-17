@@ -34,7 +34,8 @@ public:
     http::request request, 
     std::string const &method,
     bool chunked_callback,
-    handler_type handler);
+    handler_type handler,
+    monitor_type monitor = monitor_type());
 
   boost::asio::io_service& io_service();
 };

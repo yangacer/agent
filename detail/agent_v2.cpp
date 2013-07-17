@@ -11,14 +11,16 @@ void agent_v2::async_request(
   http::request request, 
   std::string const &method,
   bool chunked_callback,
-  handler_type handler)
+  handler_type handler,
+  monitor_type monitor)
 {
   io_service_.post(boost::bind(
       &agent_base_v2::async_request, this,
       url, request, 
       method,
       chunked_callback,
-      handler));
+      handler,
+      monitor));
 }
 
 boost::asio::io_service &agent_v2::io_service()

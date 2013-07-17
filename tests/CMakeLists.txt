@@ -4,13 +4,17 @@ set( test_targets
      range_request
      agent_v2
      multipart
-     httparser)
+     httparser
+     wget)
 
 set( example_targets tube )
   #agency)
 
 foreach( test IN LISTS test_targets )
   add_executable ( ${test} ${test}.cpp )
+  set_target_properties ( 
+    ${test} PROPERTIES 
+    COMPILE_DEFINITIONS "_WIN32_WINNT=0x0501" )
   target_link_libraries ( ${test} agent )
   add_test ( ${test}_test ${test} ) 
 endforeach()
@@ -24,7 +28,9 @@ endforeach()
 
 foreach( example IN LISTS example_targets )
   add_executable ( ${example} ${example}.cpp )
-  set_target_properties ( ${example} PROPERTIES COMPILE_DEFINITIONS "_WIN32_WINNT=0x0501")
+  set_target_properties ( 
+    ${example} PROPERTIES 
+    COMPILE_DEFINITIONS "_WIN32_WINNT=0x0501" )
   target_link_libraries ( ${example} agent )
 endforeach()
 

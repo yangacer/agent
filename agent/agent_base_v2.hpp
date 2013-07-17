@@ -24,7 +24,8 @@ class agent_base_v2
   typedef boost::shared_ptr<multipart> multipart_ptr;
 public:
   typedef agent_handler_type handler_type;
-  
+  typedef agent_monitor_type monitor_type;
+
   agent_base_v2(boost::asio::io_service &io_service);
   ~agent_base_v2();
 
@@ -33,7 +34,8 @@ public:
     http::request request, 
     std::string const &method,
     bool chunked_callback,
-    handler_type handler);
+    handler_type handler,
+    monitor_type monitor = monitor_type());
 
   boost::asio::io_service &io_service();
 protected:
@@ -43,17 +45,20 @@ protected:
     context(boost::asio::io_service &ios, 
             http::request const &request,
             bool chunked_callback,
-            handler_type const &handler);
+            handler_type const &handler,
+            monitor_type const &monitor);
     ~context();
-    http::request request;
-    http::response response;
-    unsigned char redirect_count;
-    bool chunked_callback;
-    boost::uintmax_t expected_size;
-    bool is_redirecting;
-    session_ptr   session;
-    handler_type  handler;
-    multipart_ptr mpart;
+
+    http::request     request;
+    http::response    response;
+    unsigned char     redirect_count;
+    bool              chunked_callback;
+    boost::uintmax_t  expected_size;
+    bool              is_redirecting;
+    session_ptr       session;
+    handler_type      handler;
+    monitor_type      monitor;
+    multipart_ptr     mpart;
   };
   typedef boost::shared_ptr<context> context_ptr;
 
@@ -83,7 +88,9 @@ protected:
                     context_ptr ctx_ptr);
   void notify_error(boost::system::error_code const &err, 
                     context_ptr ctx_ptr);
-
+  void notify_monitor(context_ptr ctx_ptr,
+                      agent_conn_action_t action, 
+                      boost::uint32_t transfered);
   boost::asio::io_service   &io_service_;
 private:
   connection_ptr            connection_;

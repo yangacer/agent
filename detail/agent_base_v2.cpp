@@ -46,14 +46,16 @@ agent_base_v2::context::context(
   boost::asio::io_service &ios,
   http::request const &request_,
   bool chunked_callback,
-  handler_type const &handler)
+  handler_type const &handler,
+  monitor_type const &monitor)
   : request(request_),
   redirect_count(0), 
   chunked_callback(chunked_callback),
   expected_size(0),
   is_redirecting(false),
   session(new session_type(ios)),
-  handler(handler)
+  handler(handler),
+  monitor(monitor)
 {
   using http::get_header;
   if(request.method == "POST") {
@@ -88,7 +90,8 @@ void agent_base_v2::async_request(
   http::request request, 
   std::string const &method,
   bool chunked_callback,
-  handler_type handler)
+  handler_type handler,
+  monitor_type monitor)
 {
   request.query = url.query;
   request.method = method;
@@ -98,7 +101,7 @@ void agent_base_v2::async_request(
     host->value += ":" + boost::lexical_cast<std::string>(url.port);
   
   context_ptr ctx(new context(
-      io_service_, request, chunked_callback, handler));
+      io_service_, request, chunked_callback, handler, monitor));
   
   tcp::resolver::query query(
     url.host, 
@@ -177,7 +180,12 @@ void agent_base_v2::handle_write_request(
       ctx_ptr->mpart->read(ctx_ptr->session->io_buffer, 4096);
       //char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
       //logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
-    } 
+    }
+    if( length ) {
+      notify_monitor(ctx_ptr, 
+                     agent_conn_action_t::upstream, 
+                     length);
+    }
     if( ctx_ptr->session->io_buffer.size() ) { // more data to send
       ctx_ptr->session->io_handler = boost::bind(
         &agent_base_v2::handle_write_request, this,
@@ -484,6 +492,9 @@ void agent_base_v2::notify_chunk(
   if(!ctx_ptr->is_redirecting) {
     asio::const_buffer chunk(data,size);
     ctx_ptr->handler(err, ctx_ptr->request, ctx_ptr->response, chunk);
+    notify_monitor(ctx_ptr,
+                   agent_conn_action_t::downstream,
+                   size);
   }
   ctx_ptr->session->io_buffer.consume(size);
 }
@@ -498,8 +509,12 @@ void agent_base_v2::notify_error(boost::system::error_code const &err,
     ctx_ptr->response.clear();
   } else {
     char const *data = asio::buffer_cast<char const*>(ctx_ptr->session->io_buffer.data());
-    asio::const_buffer chunk(data, ctx_ptr->session->io_buffer.size());
+    auto size = ctx_ptr->session->io_buffer.size();
+    asio::const_buffer chunk(data, size);
     ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, chunk);
+    notify_monitor(ctx_ptr,
+                   agent_conn_action_t::downstream,
+                   size);
     auto connect_policy = http::find_header(ctx_ptr->response.headers, "Connection");
     
     if( connect_policy != ctx_ptr->response.headers.end() &&
@@ -510,6 +525,32 @@ void agent_base_v2::notify_error(boost::system::error_code const &err,
       connection_.reset();
           
     ctx_ptr.reset();
+  }
+}
+
+void agent_base_v2::notify_monitor(
+  context_ptr ctx_ptr,
+  agent_conn_action_t action, 
+  boost::uint32_t transfered)
+{
+  AGENT_TRACKING("agent_base_v2::notify_monitor")
+  if(ctx_ptr->monitor) {
+    boost::uintmax_t total = 0;
+    if(action == agent_conn_action_t::upstream) {
+      auto content_length = http::find_header(
+        ctx_ptr->request.headers, "Content-Length");
+      if( content_length != ctx_ptr->request.headers.end() ) {
+        total = content_length->value_as<boost::uintmax_t>();
+      }
+    } else {
+      auto content_length = http::find_header(
+        ctx_ptr->response.headers, "Content-Length");
+      if( content_length != ctx_ptr->response.headers.end() ) {
+        total = content_length->value_as<boost::uintmax_t>();
+      }
+    }
+    io_service().post(boost::bind(
+        ctx_ptr->monitor, action, total, transfered));
   }
 }
 
