@@ -159,6 +159,10 @@ void agent_base_v2::handle_connect(
 #endif
     std::ostream os(&ctx_ptr->session->io_buffer);
     os << ctx_ptr->request;
+    // Remember request size (include headers)
+    ctx_ptr->expected_size = os.tellp();
+    if(ctx_ptr->mpart) 
+      ctx_ptr->expected_size += ctx_ptr->mpart->size();
     handle_write_request(err, 0, ctx_ptr);
   } else {
     notify_error(err, ctx_ptr);
@@ -192,6 +196,8 @@ void agent_base_v2::handle_write_request(
         asio_ph::error, asio_ph::bytes_transferred, ctx_ptr);
       connection_->write(*ctx_ptr->session);
     } else {
+      // Clear expected_size since it will be used when recesiving data
+      ctx_ptr->expected_size = 0;
       ctx_ptr->session->io_handler = boost::bind(
         &agent_base_v2::handle_read_status_line, this, _1, ctx_ptr);
       connection_->read_until("\r\n", 2048, *ctx_ptr->session);
@@ -255,8 +261,6 @@ void agent_base_v2::handle_read_headers(const boost::system::error_code& err,
       ctx_ptr->response);
 #endif
     ctx_ptr->session->io_buffer.consume(iter - beg);
-    //char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
-    //logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
     diagnose_transmission(ctx_ptr);
   } else {
     notify_error(err, ctx_ptr);
@@ -536,13 +540,17 @@ void agent_base_v2::notify_monitor(
   AGENT_TRACKING_2("agent_base_v2::notify_monitor", transfered);
 
   if(ctx_ptr->monitor) {
+    
     boost::uintmax_t total = 0;
     if(action == agent_conn_action_t::upstream) {
+      /*
       auto content_length = http::find_header(
         ctx_ptr->request.headers, "Content-Length");
       if( content_length != ctx_ptr->request.headers.end() ) {
         total = content_length->value_as<boost::uintmax_t>();
       }
+      */
+      total = ctx_ptr->expected_size;
     } else {
       auto content_length = http::find_header(
         ctx_ptr->response.headers, "Content-Length");
@@ -550,6 +558,7 @@ void agent_base_v2::notify_monitor(
         total = content_length->value_as<boost::uintmax_t>();
       }
     }
+    
     io_service().post(boost::bind(
         ctx_ptr->monitor, action, total, transfered));
   }
