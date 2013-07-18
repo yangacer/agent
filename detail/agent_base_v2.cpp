@@ -25,8 +25,11 @@
 #ifdef AGENT_ENABLE_HANDLER_TRACKING
 #   define AGENT_TRACKING(Desc) \
     logger::instance().async_log(Desc, false, (void*)this);
+#   define AGENT_TRACKING_2(Desc, Extra) \
+    logger::instance().async_log(Desc, false, (void*)this, Extra);
 #else
-#   define AGENT_TRACKING(Desc)
+#   define AGENT_TRACKING(X)
+#   define AGENT_TRACKING_2(X)
 #endif
 
 std::string 
@@ -172,15 +175,12 @@ void agent_base_v2::handle_write_request(
   boost::uint32_t length,
   context_ptr ctx_ptr)
 {
-  AGENT_TRACKING("agent_base_v2::handle_write_request");
+  AGENT_TRACKING_2("agent_base_v2::handle_write_request", length);
   if(!err) {
     ctx_ptr->session->io_buffer.consume(length);
-    if(ctx_ptr->mpart && !ctx_ptr->mpart->eof()) {
-      // read data from multipart 
+    // read data from multipart 
+    if(ctx_ptr->mpart && !ctx_ptr->mpart->eof())
       ctx_ptr->mpart->read(ctx_ptr->session->io_buffer, 4096);
-      //char const *data = asio::buffer_cast<char const *>(ctx_ptr->session->io_buffer.data());
-      //logger::instance().async_log("debug buffer", true, std::string(data, ctx_ptr->session->io_buffer.size()));
-    }
     if( length ) {
       notify_monitor(ctx_ptr, 
                      agent_conn_action_t::upstream, 
@@ -533,7 +533,8 @@ void agent_base_v2::notify_monitor(
   agent_conn_action_t action, 
   boost::uint32_t transfered)
 {
-  AGENT_TRACKING("agent_base_v2::notify_monitor")
+  AGENT_TRACKING_2("agent_base_v2::notify_monitor", transfered);
+
   if(ctx_ptr->monitor) {
     boost::uintmax_t total = 0;
     if(action == agent_conn_action_t::upstream) {
