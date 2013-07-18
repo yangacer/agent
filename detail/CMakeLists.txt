@@ -29,4 +29,4 @@ set_target_properties (
   agent PROPERTIES 
   COMPILE_DEFINITIONS "_WIN32_WINNT=0x0501" )
 
-install ( TARGETS agent DESTINATION "." )
+install ( TARGETS agent DESTINATION lib )
