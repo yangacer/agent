@@ -1,6 +1,7 @@
 #ifndef GAISWT_GENERATOR_DEF_HPP_
 #define GAISWT_GENERATOR_DEF_HPP_
 
+#define BOOST_SPIRIT_USE_PHOENIX_V3
 #include <boost/spirit/include/karma.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/fusion/container/map.hpp>
