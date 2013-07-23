@@ -85,7 +85,7 @@ void agent_base::async_get(http::entity::url const& url, bool chunked_callback,
 
 
 void agent_base::async_get(http::entity::url const &url, bool chunked_callback,
-                           boost::uint64_t offset, boost::uint64_t size,
+                           boost::uintmax_t offset, boost::uintmax_t size,
                            handler_type handler)
 {
   using http::entity::field;
@@ -370,11 +370,11 @@ void agent_base::diagnose_transmission()
     }
   } else { 
     if(npos != (header = FIND_HEADER_("Content-Length"))) {
-      expected_size_ = header->value_as<boost::int64_t>();
+      expected_size_ = header->value_as<boost::intmax_t>();
     } else {
       if( npos != (header = FIND_HEADER_("Connection")) &&
           header->value == "close")
-        expected_size_ = std::numeric_limits<boost::uint64_t>::max();
+        expected_size_ = std::numeric_limits<boost::uintmax_t>::max();
     }
     assert(expected_size_ >= session_->io_buffer.size());
     expected_size_ -= session_->io_buffer.size();
@@ -399,7 +399,7 @@ void agent_base::handle_read_chunk(boost::system::error_code const& err)
 {
   using boost::lexical_cast;
   using boost::numeric_cast;
-  using boost::int64_t;
+  using boost::intmax_t;
   using namespace std;
   
   AGENT_TRACKING("agent_base::handle_read_chunk");

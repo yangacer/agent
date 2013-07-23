@@ -32,7 +32,7 @@ struct field
   std::string name, value;
 };
 
-typedef boost::variant<boost::int64_t, double, std::string> 
+typedef boost::variant<boost::intmax_t, double, std::string> 
 query_value_t;
 
 typedef std::pair<std::string, query_value_t>

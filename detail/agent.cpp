@@ -20,11 +20,11 @@ void agent::async_get(http::entity::url const& url, bool chunked_callback,
 }
 
 void agent::async_get(http::entity::url const &url, bool chunked_callback,
-               boost::uint64_t offset, boost::uint64_t size,
+               boost::uintmax_t offset, boost::uintmax_t size,
                handler_type handler)
 {
   typedef void(agent_base::*mem_fn_type)(
-    http::entity::url const&, bool, boost::uint64_t, boost::uint64_t, handler_type);
+    http::entity::url const&, bool, boost::uintmax_t, boost::uintmax_t, handler_type);
   io_service().post(
     boost::bind((mem_fn_type)&agent_base::async_get, this, url, chunked_callback,
                 offset, size, handler));

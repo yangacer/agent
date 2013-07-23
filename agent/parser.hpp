@@ -61,7 +61,7 @@ struct uri
   url_esc_string<Iterator> esc_string;
 
   qi::real_parser< double, strict_real_policies<double> > real_;
-  qi::int_parser< boost::int64_t > int64_;
+  qi::int_parser< boost::intmax_t > intmax_;
 };
 
 template<typename Iterator>

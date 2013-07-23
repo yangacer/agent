@@ -101,7 +101,7 @@ uri<Iterator>::uri()
 
   query_value =
     esc_string((char const*)"&= #") | 
-    real_ | int64_ 
+    real_ | intmax_ 
     ;
 
   query_pair %=

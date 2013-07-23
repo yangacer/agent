@@ -293,11 +293,11 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
     }
   } else { // no transfer encoding field
     if(npos != (header = FIND_HEADER_("Content-Length"))) {
-      ctx_ptr->expected_size = header->value_as<boost::int64_t>();
+      ctx_ptr->expected_size = header->value_as<boost::intmax_t>();
     } else { // no content length
       if( npos != (header = FIND_HEADER_("Connection")) &&
           header->value == "close")
-        ctx_ptr->expected_size = (boost::uint64_t)-1;
+        ctx_ptr->expected_size = (boost::uintmax_t)-1;
       else
         assert(false && "Unable to receive body.");
     }
@@ -324,7 +324,7 @@ void agent_base_v2::handle_read_chunk(
 {
   using boost::lexical_cast;
   using boost::numeric_cast;
-  using boost::int64_t;
+  using boost::intmax_t;
   using namespace std;
   
   AGENT_TRACKING("agent_base_v2::handle_read_chunk");
