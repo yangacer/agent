@@ -45,7 +45,7 @@ struct query_value
   query_value();
   karma::rule<Iterator, entity::query_value_t()> start;
   url_esc_string<Iterator> esc_string;
-  karma::int_generator< boost::int64_t > int64_;
+  karma::int_generator< boost::intmax_t > intmax_;
 };
 
 template<typename Iterator>
@@ -54,11 +54,9 @@ struct query_map
 {
   query_map();
   karma::rule<Iterator, entity::query_map_t()> start;
-  //karma::rule<Iterator, entity::query_value_t()> query_value;
   query_value<Iterator> query_val;
   karma::rule<Iterator, std::pair<std::string, entity::query_value_t>()> query_pair;
   url_esc_string<Iterator> esc_string;
-  //karma::int_generator< boost::int64_t > int64_;
 };
 
 template<typename Iterator>
@@ -69,7 +67,7 @@ struct uri
   karma::rule<Iterator, entity::uri()> start;
   query_map<Iterator> query;
   url_esc_string<Iterator> esc_string;
-  karma::int_generator< boost::int64_t > int64_;
+  // karma::int_generator< boost::intmax_t > intmax_;
 };
 
 template<typename Iterator>

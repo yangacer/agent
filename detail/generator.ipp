@@ -1,6 +1,7 @@
 #ifndef GAISWT_GENERATOR_DEF_HPP_
 #define GAISWT_GENERATOR_DEF_HPP_
 
+#define BOOST_SPIRIT_USE_PHOENIX_V3
 #include <boost/spirit/include/karma.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
 #include <boost/fusion/container/map.hpp>
@@ -62,7 +63,7 @@ query_value<Iterator>::query_value()
 : query_value::base_type(start)
 {
  start = 
-   karma::double_ | int64_ | esc_string(ESCAPE_PATH_DELIM)
+   karma::double_ | intmax_ | esc_string(ESCAPE_PATH_DELIM)
    ;
 }
 
@@ -70,13 +71,6 @@ template<typename Iterator>
 query_map<Iterator>::query_map()
 : query_map::base_type(start)
 {
-  /*
-  query_value =
-    karma::double_ | 
-    int64_ |
-    esc_string(ESCAPE_PATH_DELIM) 
-    ;
-    */
   query_pair =
     esc_string(ESCAPE_PATH_DELIM) << '=' <<
     query_val

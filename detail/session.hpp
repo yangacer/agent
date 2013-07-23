@@ -23,7 +23,7 @@ public:
   connect_handler_type  connect_handler;
   io_handler_type       io_handler;
   connection_ptr        connection;
-  boost::int64_t        expected_size;
+  boost::intmax_t        expected_size;
 };
 
 #endif // header guard

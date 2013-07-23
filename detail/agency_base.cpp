@@ -294,7 +294,7 @@ void agency_base::handle_read_header_list(
     
     if( content_length != request.headers.end() ) 
       session->expected_size =   
-        content_length->value_as<boost::int64_t>();
+        content_length->value_as<boost::intmax_t>();
     else
       session->expected_size = 0;
 

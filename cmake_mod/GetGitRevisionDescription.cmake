@@ -40,7 +40,7 @@ set(__get_git_revision_description YES)
 get_filename_component(_gitdescmoddir ${CMAKE_CURRENT_LIST_FILE} PATH)
 
 function(get_git_head_revision _refspecvar _hashvar)
-        set(GIT_PARENT_DIR "${CMAKE_SOURCE_DIR}")
+        set(GIT_PARENT_DIR "${PROJECT_SOURCE_DIR}")
         set(GIT_DIR "${GIT_PARENT_DIR}/.git")
         while(NOT EXISTS "${GIT_DIR}")  # .git dir not found, search parent directories
                 set(GIT_PREVIOUS_PARENT "${GIT_PARENT_DIR}")
@@ -53,9 +53,16 @@ function(get_git_head_revision _refspecvar _hashvar)
                 endif()
                 set(GIT_DIR "${GIT_PARENT_DIR}/.git")
         endwhile()
-        set(GIT_DATA "${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/git-data")
+        set(GIT_DATA "${PROJECT_BINARY_DIR}/CMakeFiles/git-data")
         if(NOT EXISTS "${GIT_DATA}")
                 file(MAKE_DIRECTORY "${GIT_DATA}")
+        endif()
+
+        if(NOT IS_DIRECTORY "${GIT_DIR}")
+          file (READ "${GIT_DIR}" content_ )
+          string ( REGEX REPLACE "gitdir: " "" content_ "${content_}")
+          string ( REGEX REPLACE "\n" "" content_ "${content_}")
+          set ( GIT_DIR "${PROJECT_SOURCE_DIR}/${content_}" )
         endif()
 
         if(NOT EXISTS "${GIT_DIR}/HEAD")
@@ -103,7 +110,7 @@ function(git_describe _var)
                 ${hash}
                 ${ARGN}
                 WORKING_DIRECTORY
-                "${CMAKE_SOURCE_DIR}"
+                "${PROJECT_SOURCE_DIR}"
                 RESULT_VARIABLE
                 res
                 OUTPUT_VARIABLE

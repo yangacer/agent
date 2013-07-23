@@ -29,7 +29,7 @@ public:
                  handler_type handler);
 
   void async_get(http::entity::url const &url, bool chunked_callback,
-                 boost::uint64_t offset, boost::uint64_t size,
+                 boost::uintmax_t offset, boost::uintmax_t size,
                  handler_type handler);
 
   void async_post(http::entity::url const &url, 
@@ -77,7 +77,7 @@ private:
   unsigned char   redirect_count_;
   bool            chunked_callback_;
   handler_ptr     handler_;
-  boost::uint64_t expected_size_;
+  boost::uintmax_t expected_size_;
   bool            is_redirecting_;
 };
 // TODO upload handler (a.k.a. write handler)

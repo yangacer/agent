@@ -1,6 +1,7 @@
 #ifndef GAISWT_PARSER_DEF_HPP_
 #define GAISWT_PARSER_DEF_HPP_
 
+#define BOOST_SPIRIT_USE_PHOENIX_V3
 #include "agent/parser.hpp"
 #include <boost/spirit/include/qi.hpp>
 #include <boost/spirit/include/phoenix_stl.hpp>
@@ -100,7 +101,7 @@ uri<Iterator>::uri()
 
   query_value =
     esc_string((char const*)"&= #") | 
-    real_ | int64_ 
+    real_ | intmax_ 
     ;
 
   query_pair %=
