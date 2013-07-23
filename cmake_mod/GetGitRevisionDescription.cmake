@@ -58,6 +58,13 @@ function(get_git_head_revision _refspecvar _hashvar)
                 file(MAKE_DIRECTORY "${GIT_DATA}")
         endif()
 
+        if(NOT IS_DIRECTORY "${GIT_DIR}")
+          file (READ "${GIT_DIR}" content_ )
+          string ( REGEX REPLACE "gitdir: " "" content_ "${content_}")
+          string ( REGEX REPLACE "\n" "" content_ "${content_}")
+          set ( GIT_DIR "${PROJECT_SOURCE_DIR}/${content_}" )
+        endif()
+
         if(NOT EXISTS "${GIT_DIR}/HEAD")
                 return()
         endif()
