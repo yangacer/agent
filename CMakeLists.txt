@@ -50,21 +50,26 @@ endif()
 
 ENABLE_TESTING()
 
-add_subdirectory ( contrib/zlib-1.2.8 )
-get_target_property ( ZLIB_PATH zlib LOCATION)
-if( MSVC AND  ${ZLIB_PATH} MATCHES ".dll" )
-  if( "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
-    string ( REGEX REPLACE ".dll" "d.lib" ZLIB_PATH "${ZLIB_PATH}")
-  else()
-    string ( REGEX REPLACE ".dll" ".lib" ZLIB_PATH "${ZLIB_PATH}")
+find_package ( ZLIB )
+
+if ( NOT ZLIB_FOUND )
+  add_subdirectory ( contrib/zlib-1.2.8 )
+  get_target_property ( ZLIB_PATH zlib LOCATION)
+  if( MSVC AND  ${ZLIB_PATH} MATCHES ".dll" )
+    if( "${CMAKE_BUILD_TYPE}" MATCHES "Debug")
+      string ( REGEX REPLACE ".dll" "d.lib" ZLIB_PATH "${ZLIB_PATH}")
+    else()
+      string ( REGEX REPLACE ".dll" ".lib" ZLIB_PATH "${ZLIB_PATH}")
+    endif()
+    message( "zlib path: ${ZLIB_PATH}" )
   endif()
-  message( "zlib path: ${ZLIB_PATH}" )
-endif()
 
 #set ( CMAKE_PREFIX_PATH ${PROJECT_BINARY_DIR}/contrib/zlib-1.2.8 )
-set ( ZLIB_INCLUDE_DIR # BINARY_DIR for zconf.h
-      ${PROJECT_SOURCE_DIR}/contrib/zlib-1.2.8;${PROJECT_BINARY_DIR}/contrib/zlib-1.2.8 )
-set ( ZLIB_LIBRARY "${ZLIB_PATH}" )
+  set ( ZLIB_INCLUDE_DIR # BINARY_DIR for zconf.h
+        ${PROJECT_SOURCE_DIR}/contrib/zlib-1.2.8;${PROJECT_BINARY_DIR}/contrib/zlib-1.2.8 )
+  set ( ZLIB_LIBRARY "${ZLIB_PATH}" )
+endif( NOT ZLIB_FOUND)
+
 add_subdirectory ( contrib/libarchive-3.1.2 )
 add_subdirectory ( detail )
 add_subdirectory ( tests )

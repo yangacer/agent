@@ -24,7 +24,10 @@ else()
   add_library ( agent SHARED ${AGENT_SRC} )
 endif()
 
-target_link_libraries( agent ${Boost_LIBRARIES} ${LIBS} archive zlib) 
+target_link_libraries( agent ${Boost_LIBRARIES} 
+                       ${LIBS} 
+                       archive
+                       ${ZLIB_LIBRARY}) 
 set_target_properties ( 
   agent PROPERTIES 
   COMPILE_DEFINITIONS "_WIN32_WINNT=0x0501" )
