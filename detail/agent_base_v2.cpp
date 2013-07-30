@@ -2,6 +2,7 @@
 #include <string>
 #include <sstream>
 #include <cstring>
+#include <ctime>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/asio/placeholders.hpp>
@@ -58,7 +59,9 @@ agent_base_v2::context::context(
   is_redirecting(false),
   session(new session_type(ios)),
   handler(handler),
-  monitor(monitor)
+  monitor(monitor),
+  qos(0, 8192),
+  receive_since_last_limit_check(0)
 {
   using http::get_header;
   if(request.method == "POST") {
@@ -120,25 +123,29 @@ void agent_base_v2::handle_resolve(
   context_ptr ctx_ptr)
 {
   sys::error_code internal_err;
+
   if(!err && endpoint != tcp::resolver::iterator() ) {
-    if( connection_ && connection_->is_open() &&
+    // test whether to reconnect
+    if( connection_ && 
+        connection_->is_open() &&
         endpoint->endpoint() ==
         connection_->socket().remote_endpoint(internal_err))
     {
       AGENT_TRACKING("agent_base::handle_resolve(reuse) " + 
                      endpoint->endpoint().address().to_string());
-      if(!internal_err) 
+      if(!internal_err) {
+        // XXX This is sufficient for Linux, Windows requires further
+        // exploiration
         handle_connect(err, ctx_ptr);
-      else 
-        notify_error(internal_err, ctx_ptr);
-    } else {
-      AGENT_TRACKING("agent_base_v2::handle_resolve(reconnect) " + 
-                     endpoint->endpoint().address().to_string());
-      connection_.reset(new connection(io_service_));
-      ctx_ptr->session->connect_handler =
-        boost::bind(&agent_base_v2::handle_connect, this, _1, ctx_ptr);
-      connection_->connect(endpoint, *(ctx_ptr->session));
-    } 
+        return;
+      }
+    }
+    AGENT_TRACKING("agent_base_v2::handle_resolve(reconnect) " + 
+                   endpoint->endpoint().address().to_string());
+    connection_.reset(new connection(io_service_));
+    ctx_ptr->session->connect_handler =
+      boost::bind(&agent_base_v2::handle_connect, this, _1, ctx_ptr);
+    connection_->connect(endpoint, *(ctx_ptr->session));
   }else {
     notify_error(err, ctx_ptr);
   }
@@ -160,6 +167,8 @@ void agent_base_v2::handle_connect(
     std::ostream os(&ctx_ptr->session->io_buffer);
     os << ctx_ptr->request;
     // Remember request size (include headers)
+    // XXX expected_size is used both in upstream and downstream but in
+    // different maner. That's tricky.
     ctx_ptr->expected_size = os.tellp();
     if(ctx_ptr->mpart) 
       ctx_ptr->expected_size += ctx_ptr->mpart->size();
@@ -308,7 +317,7 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
 void agent_base_v2::read_chunk(context_ptr ctx_ptr)
 {
   AGENT_TRACKING("agent_base_v2::read_chunk");
-  if( ctx_ptr->session->io_buffer.size() <= 3) {
+  if( ctx_ptr->session->io_buffer.size() <= 3) { // 3 bytes for "0\r\n"
     ctx_ptr->session->io_handler = boost::bind(
       &agent_base_v2::handle_read_chunk, this, asio_ph::error, ctx_ptr);
     connection_->read_some(1, *ctx_ptr->session);
@@ -408,7 +417,14 @@ void agent_base_v2::handle_read_body(
   if (!err && ctx_ptr->expected_size) {
     if( ctx_ptr->chunked_callback ) 
       notify_chunk(err, -1, ctx_ptr);
-    read_body(ctx_ptr);
+    boost::uint32_t delay = estimate_delay(ctx_ptr, downstream, length);
+    if(!delay) {
+      read_body(ctx_ptr);
+    } else {
+      AGENT_TRACKING_2("agent_base_v2::handle_read_body(delay)", delay);
+      ctx_ptr->session->timer.expires_from_now(boost::posix_time::seconds(delay));
+      ctx_ptr->session->timer.async_wait(boost::bind(&agent_base_v2::read_body, this, ctx_ptr));
+    }
   } else {
     if( err == asio::error::eof || 0 == ctx_ptr->expected_size ) {
       notify_error(asio::error::eof, ctx_ptr);
@@ -451,7 +467,7 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
       connection_.reset();
     http::entity::url url(location->value);
     async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
-              ctx_ptr->handler);
+              ctx_ptr->handler, ctx_ptr->monitor);
   } else { // we got a non-standard relative redirection that sucks!
     if(location->value[0] != '/')
       location->value.insert(0, "/");
@@ -467,7 +483,7 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
         connection_.reset();
       http::entity::url url(cvt.str());
       async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
-                ctx_ptr->handler);
+                ctx_ptr->handler, ctx_ptr->monitor);
     }
   }
   return;
@@ -543,13 +559,6 @@ void agent_base_v2::notify_monitor(
     
     boost::uintmax_t total = 0;
     if(action == agent_conn_action_t::upstream) {
-      /*
-      auto content_length = http::find_header(
-        ctx_ptr->request.headers, "Content-Length");
-      if( content_length != ctx_ptr->request.headers.end() ) {
-        total = content_length->value_as<boost::uintmax_t>();
-      }
-      */
       total = ctx_ptr->expected_size;
     } else {
       auto content_length = http::find_header(
@@ -562,5 +571,32 @@ void agent_base_v2::notify_monitor(
     io_service().post(boost::bind(
         ctx_ptr->monitor, action, total, transfered));
   }
+}
+
+boost::uint32_t agent_base_v2::estimate_delay(
+  context_ptr ctx_ptr,
+  agent_conn_action_t action, 
+  boost::uint32_t transfered)
+{
+  using boost::uint32_t;
+  using std::time;
+  
+  uint32_t delay_seconds = 0;
+  if(action == upstream) {
+    if( ctx_ptr->qos.write_max_bps != quality_config::unlimited) {
+       // TODO Upstream limit
+    }
+  } else { // downstream
+    if( ctx_ptr->qos.read_max_bps != quality_config::unlimited) {
+      ctx_ptr->receive_since_last_limit_check += transfered;
+      if(ctx_ptr->receive_since_last_limit_check > ctx_ptr->qos.read_max_bps) {
+        // XXX Here I assume each async_read will return in 1 second
+       delay_seconds = ctx_ptr->receive_since_last_limit_check / ctx_ptr->qos.read_max_bps;
+       ctx_ptr->receive_since_last_limit_check = 0;
+      }
+    }
+  }
+  AGENT_TRACKING_2("agent_base_v2::estimate_delay", delay_seconds);
+  return delay_seconds;
 }
 

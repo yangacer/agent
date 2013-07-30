@@ -111,7 +111,7 @@ void connection::handle_connect(
   session_type &session)
 {
   AGENT_TRACKING("connection::handle_connect");
-  session.timer.cancel();
+  // session.timer.cancel();
   io_service_.post(boost::bind(session.connect_handler, err));
   session.connect_handler = connect_handler_type();
 }
@@ -168,7 +168,7 @@ void connection::handle_read(
     (err.category() == boost::asio::error::ssl_category &&
     err.value() == ssl_short_read_error_);
 
-  session.timer.cancel();
+  //session.timer.cancel();
   if(err && is_ssl_short_read_error_)
     err_ = boost::asio::error::eof;
   io_service_.post(
@@ -215,7 +215,7 @@ void connection::handle_write(
     session_type &session)
 {
   AGENT_TRACKING("connection::handle_write");
-  session.timer.cancel();
+  // session.timer.cancel();
   io_service_.post(
     boost::bind(session.io_handler, err, length));
   session.io_handler = io_handler_type();

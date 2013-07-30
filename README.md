@@ -8,7 +8,7 @@
     mkdir build
     cd build
     cmake .. -DCMAKE_PREFIX_PATH=/path/to/include -DCMAKE_INSTALL_PREFIX=/path/for/install
-    # Due to library dependencies, we have to build zlib first.
+    # (MSVC only) Due to library dependencies, we have to build zlib first.
     make zlib
     # Now we have zlib s.t. configuration of libarchive can be found it
     # properly

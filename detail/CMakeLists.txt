@@ -9,6 +9,7 @@ set ( AGENT_SRC
   parser.cpp generator.cpp entity.cpp
   multipart.cpp
   timeout_config.cpp
+  quality_config.cpp
   connection.cpp
   session.cpp
   agent_base.cpp

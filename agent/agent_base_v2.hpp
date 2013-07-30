@@ -10,6 +10,7 @@
 #include "agent/connection_fwd.hpp"
 #include "agent/agent_handler_type.hpp"
 #include "agent/entity.hpp"
+#include "agent/quality_config.hpp"
 
 class session_type;
 class multipart;
@@ -59,6 +60,8 @@ protected:
     handler_type      handler;
     monitor_type      monitor;
     multipart_ptr     mpart;
+    quality_config    qos;
+    boost::uint32_t   receive_since_last_limit_check;
   };
   typedef boost::shared_ptr<context> context_ptr;
 
@@ -91,6 +94,9 @@ protected:
   void notify_monitor(context_ptr ctx_ptr,
                       agent_conn_action_t action, 
                       boost::uint32_t transfered);
+  boost::uint32_t estimate_delay(context_ptr ctx_ptr,
+                                 agent_conn_action_t action, 
+                                 boost::uint32_t transfered);
   boost::asio::io_service   &io_service_;
 private:
   connection_ptr            connection_;
