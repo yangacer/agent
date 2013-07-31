@@ -589,7 +589,7 @@ boost::uint32_t agent_base_v2::estimate_delay(
   } else { // downstream
     if( ctx_ptr->qos.read_max_bps != quality_config::unlimited) {
       ctx_ptr->receive_since_last_limit_check += transfered;
-      if(ctx_ptr->receive_since_last_limit_check > ctx_ptr->qos.read_max_bps) {
+      if(ctx_ptr->receive_since_last_limit_check > (boost::uint32_t)ctx_ptr->qos.read_max_bps) {
         // XXX Here I assume each async_read will return in 1 second
        delay_seconds = ctx_ptr->receive_since_last_limit_check / ctx_ptr->qos.read_max_bps;
        ctx_ptr->receive_since_last_limit_check = 0;
