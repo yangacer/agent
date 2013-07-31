@@ -169,7 +169,7 @@ void agent_base_v2::handle_connect(
     // Remember request size (include headers)
     // XXX expected_size is used both in upstream and downstream but in
     // different maner. That's tricky.
-    ctx_ptr->expected_size = os.tellp();
+    ctx_ptr->expected_size = ctx_ptr->session->io_buffer.size();
     if(ctx_ptr->mpart) 
       ctx_ptr->expected_size += ctx_ptr->mpart->size();
     handle_write_request(err, 0, ctx_ptr);
