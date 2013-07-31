@@ -2,6 +2,7 @@
 #define AGENT_V2_HPP_
 
 #include "agent/agent_base_v2.hpp"
+#include "agent/placeholders.hpp"
 
 class agent_v2
 : public agent_base_v2

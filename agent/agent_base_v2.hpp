@@ -24,8 +24,8 @@ class agent_base_v2
   typedef boost::shared_ptr<agent_handler_type> handler_ptr;
   typedef boost::shared_ptr<multipart> multipart_ptr;
 public:
-  typedef agent_handler_type handler_type;
-  typedef agent_monitor_type monitor_type;
+  typedef agent_handler_type_v2 handler_type;
+  typedef agent_monitor_type    monitor_type;
 
   agent_base_v2(boost::asio::io_service &io_service);
   ~agent_base_v2();
@@ -62,6 +62,7 @@ protected:
     multipart_ptr     mpart;
     quality_config    qos;
     boost::uint32_t   receive_since_last_limit_check;
+    clock_t           last_limit_check;
   };
   typedef boost::shared_ptr<context> context_ptr;
 

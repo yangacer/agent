@@ -15,6 +15,21 @@ void print_to_stdout(boost::system::error_code const &ec, boost::asio::const_buf
   }
 }
 
+struct qos_handler 
+{
+  qos_handler() : cnt(0) {}
+
+  void adjust(quality_config &qos)
+  {
+    ++cnt;
+    if(cnt == 100) {
+      std::cout << "---- Adjust read speed to 2k ----\n";
+      qos.read_max_bps = 2048;
+    }
+  }
+  int cnt;
+};
+
 void monitor(agent_conn_action_t action, boost::uintmax_t total, boost::uint32_t transfered)
 {
   using namespace std;
@@ -31,6 +46,7 @@ int main(int argc, char ** argv)
   logger::instance().use_file("wget.log");
   boost::asio::io_service ios;
   auto nop = boost::bind(std::plus<int>(), 0, 0);
+  qos_handler qos_hdl;
   http::entity::url url(argv[1]);
   agent_v2 agent(ios);
 
@@ -38,8 +54,8 @@ int main(int argc, char ** argv)
     url.query.path = "/";
 
   agent.async_request(url, http::request(), "GET", true,
-                      nop, 
-                      boost::bind(&monitor, _1, _2, _3));
+                      boost::bind(&qos_handler::adjust, &qos_hdl, agent_arg::qos),
+                      boost::bind(&monitor, agent_arg::orient, agent_arg::total, agent_arg::transfered));
 
   ios.run();
 

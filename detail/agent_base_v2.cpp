@@ -60,7 +60,7 @@ agent_base_v2::context::context(
   session(new session_type(ios)),
   handler(handler),
   monitor(monitor),
-  qos(0, 8192),
+  qos(),
   receive_since_last_limit_check(0)
 {
   using http::get_header;
@@ -511,7 +511,7 @@ void agent_base_v2::notify_chunk(
     (size_t)length, ctx_ptr->session->io_buffer.size());
   if(!ctx_ptr->is_redirecting) {
     asio::const_buffer chunk(data,size);
-    ctx_ptr->handler(err, ctx_ptr->request, ctx_ptr->response, chunk);
+    ctx_ptr->handler(err, ctx_ptr->request, ctx_ptr->response, chunk, ctx_ptr->qos);
     notify_monitor(ctx_ptr,
                    agent_conn_action_t::downstream,
                    size);
@@ -531,7 +531,7 @@ void agent_base_v2::notify_error(boost::system::error_code const &err,
     char const *data = asio::buffer_cast<char const*>(ctx_ptr->session->io_buffer.data());
     auto size = ctx_ptr->session->io_buffer.size();
     asio::const_buffer chunk(data, size);
-    ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, chunk);
+    ctx_ptr->handler(ec, ctx_ptr->request, ctx_ptr->response, chunk, ctx_ptr->qos);
     notify_monitor(ctx_ptr,
                    agent_conn_action_t::downstream,
                    size);
