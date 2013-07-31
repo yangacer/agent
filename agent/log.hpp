@@ -6,6 +6,7 @@
 #include <ostream>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
+#include <boost/config.hpp>
 
 std::string timestamp();
 
@@ -18,12 +19,16 @@ public:
   static logger& instance();
   void use_file(std::string const& filename, boost::uint32_t max_size = 4 << 20);
   void async_log(std::string const &name);
-
+#ifdef BOOST_NO_VARIADIC_TEMPLATES
   template<typename StreamableObject>
   void async_log(std::string const &name, bool block, StreamableObject const &o);
 
   template<typename S1, typename S2>
   void async_log(std::string const &name, bool block, S1 const &o1, S2 const &o2); 
+#else
+  template<typename ...S>
+  void async_log(std::string const &name, bool block, S&& ...subjects);
+#endif
 private:
   logger();
   static std::unique_ptr<logger> instance_;

@@ -1,6 +1,5 @@
 #include "log_impl.hpp"
 #include "ref_stream.hpp"
-#include <boost/config.hpp>
 
 #ifdef BOOST_NO_VARIADIC_TEMPLATES
 
@@ -36,32 +35,35 @@ void logger::async_log(std::string const &name, bool block, S1 const &o1, S2 con
 
 namespace detail {
 
+template<typename ...T>
+struct print;
+
 template<>
 struct print<>
 {
-  static void &do_it()(ref_str_stream &os, bool block) const
-  { return os; }
+  static void do_it(ref_str_stream &os, bool block){}
 };
 
 template<typename Head, typename ... Tail>
-struct print 
+struct print<Head, Tail...>
 {
-  static void &do_it(ref_str_stream &os, bool block, Head const & head, Tail const &... tail) const
+  static void do_it(ref_str_stream &os, bool block, Head const & head, Tail&&... tail) 
   {
     os << (block ? "\n" : " " ) << head;
-    return print<Tail...>::(os, block, std::forward<Tail>(tail)...);
+    print<Tail...>::do_it(os, block, std::forward<Tail>(tail)...);
   }
 };
 
 } // namespace
 
+// TODO Use std::move to pass log data
 template<typename ... S>
-void logger::async_log(std::string const &name, bool block, S const &... subjects)
+void logger::async_log(std::string const &name, bool block, S&&... subjects)
 {
   std::string data;
   ref_str_stream rss(data);
   rss << "---- [" << timestamp() << "] " << name;
-  print<S...>::do_it(rss, block, std::forward<S>(subjects)...);
+  detail::print<S...>::do_it(rss, block, std::forward<S>(subjects)...);
   rss << "\n" << std::flush;
   assert(data.size());
   impl_->io_service().post(
