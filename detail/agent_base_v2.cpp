@@ -1,8 +1,10 @@
 #include "agent/agent_base_v2.hpp"
+#include <cassert>
 #include <string>
 #include <sstream>
 #include <cstring>
 #include <ctime>
+#include <cassert>
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/asio/placeholders.hpp>
@@ -21,8 +23,6 @@
 #include "session.hpp"
 #include "multipart.hpp"
 
-#define USER_AGENT_STR "OokonHTTPAgent Version"
-
 #ifdef AGENT_ENABLE_HANDLER_TRACKING
 #   define AGENT_TRACKING(Desc) \
     logger::instance().async_log(Desc, false, (void*)this);
@@ -30,7 +30,7 @@
     logger::instance().async_log(Desc, false, (void*)this, Extra);
 #else
 #   define AGENT_TRACKING(X)
-#   define AGENT_TRACKING_2(X)
+#   define AGENT_TRACKING_2(X, Y)
 #endif
 
 std::string 
@@ -280,10 +280,16 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
 {
   AGENT_TRACKING("agent_base_v2::diagnose_transmission");
 
-#define FIND_HEADER_(Header) \
+#define FIND_RESPONSE_HEADER_(Header) \
   http::find_header(ctx_ptr->response.headers, Header)
-  auto npos = ctx_ptr->response.headers.end();
-  decltype(npos) header;
+
+#define FIND_REQUEST_HEADER_(Header) \
+  http::find_header(ctx_ptr->request.headers, Header)
+
+  auto req_npos = ctx_ptr->request.headers.end();
+  auto resp_npos = ctx_ptr->response.headers.end();
+
+  decltype(req_npos) header;
   ctx_ptr->expected_size = 0;
   ctx_ptr->is_redirecting = 
     ctx_ptr->response.status_code >= 300 && 
@@ -291,7 +297,7 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
 
   // TODO Content-Range handling
   
-  if(npos != (header = FIND_HEADER_("Transfer-Encoding"))) {
+  if(resp_npos != (header = FIND_RESPONSE_HEADER_("Transfer-Encoding"))) {
     sys::error_code ec;
     if( !ctx_ptr->chunked_callback ) {
       // XXX Sorry for this.
@@ -301,14 +307,17 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
       read_chunk(ctx_ptr);
     }
   } else { // no transfer encoding field
-    if(npos != (header = FIND_HEADER_("Content-Length"))) {
+    if(resp_npos != (header = FIND_RESPONSE_HEADER_("Content-Length"))) {
       ctx_ptr->expected_size = header->value_as<boost::intmax_t>();
     } else { // no content length
-      if( npos != (header = FIND_HEADER_("Connection")) &&
+      if( req_npos != (header = FIND_REQUEST_HEADER_("Connection")) &&
           header->value == "close")
         ctx_ptr->expected_size = (boost::uintmax_t)-1;
-      else
+      else if(ctx_ptr->is_redirecting)
+        ctx_ptr->expected_size = 0;
+      else {
         assert(false && "Unable to receive body.");
+      }
     }
     read_body(ctx_ptr);
   }
@@ -318,10 +327,15 @@ void agent_base_v2::read_chunk(context_ptr ctx_ptr)
 {
   AGENT_TRACKING("agent_base_v2::read_chunk");
   if( ctx_ptr->session->io_buffer.size() <= 3) { // 3 bytes for "0\r\n"
+    ctx_ptr->debug_rst();
     ctx_ptr->session->io_handler = boost::bind(
       &agent_base_v2::handle_read_chunk, this, asio_ph::error, ctx_ptr);
     connection_->read_some(1, *ctx_ptr->session);
   } else {
+    // XXX Normally, this part does not occur consecutively.
+    ctx_ptr->debug_inc();
+    assert( ctx_ptr->debug() < 3 && 
+            "Recursive read_chunk & handle_read_chunk.");
     sys::error_code ec;
     handle_read_chunk(ec, ctx_ptr);
   }
@@ -337,9 +351,13 @@ void agent_base_v2::handle_read_chunk(
   using namespace std;
   
   AGENT_TRACKING("agent_base_v2::handle_read_chunk");
+  // XXX Current we buffer data according to chunk size gave by server side.
+  // It's a little bit risky if a malformed server set super large chunk
+  // size and explode our io_buffer consequently.
   if(!err) {
     while(ctx_ptr->session->io_buffer.size() ) {
       if( ctx_ptr->expected_size ) {
+        // We have complete a chunk, let's notify user about it.
         size_t to_write;
         try {
           to_write = min(
@@ -351,11 +369,15 @@ void agent_base_v2::handle_read_chunk(
         notify_chunk(err, to_write, ctx_ptr);
         ctx_ptr->expected_size -= to_write;
       } else {
+        // Search for and parse the literal size information (i.e. hexdecimal 
+        // number terminated by CRLF).
         auto 
           beg(asio::buffers_begin(ctx_ptr->session->io_buffer.data())), 
           end(asio::buffers_end(ctx_ptr->session->io_buffer.data()));
         auto origin = beg, pos = beg;
         char const* crlf("\r\n");
+        // This searching has to be repeated due to multiple chunks may
+        // present in buffer.
         while( end != (pos = search(beg, end, crlf, crlf + 2))) {
           if( pos == beg) {
             beg = pos + 2;
@@ -397,11 +419,15 @@ void agent_base_v2::handle_read_chunk(
 void agent_base_v2::read_body(context_ptr ctx_ptr) 
 {
   AGENT_TRACKING("agent_base_v2::read_body");
-  if(!ctx_ptr->session->io_buffer.size() && ctx_ptr->expected_size ) {
+  if(/*!ctx_ptr->session->io_buffer.size() && */ctx_ptr->expected_size ) {
+    ctx_ptr->debug_rst();
     ctx_ptr->session->io_handler = 
       boost::bind(&agent_base_v2::handle_read_body, this, _1, _2, ctx_ptr);
     connection_->read_some(1, *ctx_ptr->session);
   } else {
+    ctx_ptr->debug_inc();
+    assert(ctx_ptr->debug() < 3 && 
+           "Recursive read_body & handle_read_body.");
     sys::error_code ec;
     handle_read_body(ec, ctx_ptr->session->io_buffer.size(), ctx_ptr);
   }
@@ -466,9 +492,14 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
     if( connect_policy->value == "close" )
       connection_.reset();
     http::entity::url url(location->value);
-    async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
-              ctx_ptr->handler, ctx_ptr->monitor);
+    async_request(url, 
+              ctx_ptr->request, 
+              ctx_ptr->request.method, 
+              ctx_ptr->chunked_callback, 
+              ctx_ptr->handler, 
+              ctx_ptr->monitor);
   } else { // we got a non-standard relative redirection that sucks!
+    AGENT_TRACKING_2("agent_base_v2::redirect(non standard location)", location->value);
     if(location->value[0] != '/')
       location->value.insert(0, "/");
     std::stringstream cvt;
@@ -482,8 +513,12 @@ void agent_base_v2::redirect(context_ptr ctx_ptr)
       if( connect_policy->value == "close" )
         connection_.reset();
       http::entity::url url(cvt.str());
-      async_request(url, ctx_ptr->request, ctx_ptr->request.method, ctx_ptr->chunked_callback, 
-                ctx_ptr->handler, ctx_ptr->monitor);
+      async_request(url, 
+                    ctx_ptr->request, 
+                    ctx_ptr->request.method, 
+                    ctx_ptr->chunked_callback, 
+                    ctx_ptr->handler, 
+                    ctx_ptr->monitor);
     }
   }
   return;
@@ -590,7 +625,7 @@ boost::uint32_t agent_base_v2::estimate_delay(
     if( ctx_ptr->qos.read_max_bps != quality_config::unlimited) {
       ctx_ptr->receive_since_last_limit_check += transfered;
       if(ctx_ptr->receive_since_last_limit_check > (boost::uint32_t)ctx_ptr->qos.read_max_bps) {
-        // XXX Here I assume each async_read will return in 1 second
+        // XXX Here I assume each async_read will return in 1 second at most
        delay_seconds = ctx_ptr->receive_since_last_limit_check / ctx_ptr->qos.read_max_bps;
        ctx_ptr->receive_since_last_limit_check = 0;
       }

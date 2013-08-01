@@ -4,7 +4,7 @@
 #include "agent/parser.hpp"
 #include "agent/version.hpp"
 
-#define USER_AGENT_STR "OokonHTTPAgent"
+#define USER_AGENT_STR "Hagentle Version"
 
 namespace http {
 namespace entity {

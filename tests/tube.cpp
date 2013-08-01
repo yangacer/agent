@@ -1,11 +1,12 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <stdexcept>
 #include <algorithm>
 #include <boost/bind.hpp>
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include "agent/agent.hpp"
+#include "agent/agent_v2.hpp"
 #include "agent/parser.hpp"
 #include "agent/log.hpp"
 #include "agent/status_code.hpp"
@@ -49,9 +50,14 @@ struct tube_agent
   {
     itag_ = itag;
     page_url_ = url;
-    agent_.request().headers << http::entity::field("Connection", "close");
-    agent_.async_get(url, false, 
-      boost::bind(&tube_agent::handle_page, this, _1,_2,_3,_4));
+    http::request req;
+    auto connection = http::get_header(req.headers, "Connection");
+    connection->value = "close";
+
+    agent_.async_request(
+      url, req, "GET", false,
+      boost::bind(&tube_agent::handle_page, this, 
+                  agent_arg::error, agent_arg::response, agent_arg::buffer));
   }
 
   ~tube_agent()
@@ -62,11 +68,11 @@ struct tube_agent
 
 protected:
   void handle_page(
-    sys::error_code const& ec, http::request const& req,
-    http::response const &resp, asio::const_buffer buffer)
+    sys::error_code const& ec, http::response const &resp, asio::const_buffer buffer)
   {
     using std::cerr;
     using std::string;
+    using http::entity::field;
 
     if(!ec) {
     } else if(eof == ec) {
@@ -77,8 +83,13 @@ protected:
           auto beg(url.begin()), end(url.end());
           video_url_.clear();
           http::parser::parse_url_esc_string(beg, end, video_url_);
-          agent_.async_get(video_url_, true, received_, -1,
-                           bind(&tube_agent::handle_video, this, _1,_2,_3,_4));
+          http::request req;
+          std::stringstream cvt;
+          cvt << "bytes=" << received_ << "-";
+          req.headers << field("Range", cvt.str());
+          agent_.async_request(video_url_, req, "GET", true,
+                           bind(&tube_agent::handle_video, this, 
+                                agent_arg::error, agent_arg::response, agent_arg::buffer));
 
         } else {
           char const* data = asio::buffer_cast<char const*>(buffer);
@@ -144,12 +155,12 @@ protected:
   }
 
   void handle_video(
-    sys::error_code const& ec, http::request const& req,
+    sys::error_code const& ec,
     http::response const &resp, asio::const_buffer buffer)
   {
     size_t size = asio::buffer_size(buffer);
     if(!ec && resp.status_code - 200 < 100) {
-      if( size == 0 ) {
+      if( total_ == 0 ) {
         auto h = http::find_header(resp.headers, "Content-Length");
         std::cerr << "Content length: " << h->value << "\n\n\n";
         total_ = h->value_as<size_t>();
@@ -157,8 +168,8 @@ protected:
 
       received_ += size;
       ofs_.write(asio::buffer_cast<char const *>(buffer), size);
-      std::cout << "\033[F\033[J" // << received_ << "/" << total_ << "\n";
-      <<  (received_/100)/(total_/10000) << "%\n";
+      std::cout << "\033[F\033[J"  << received_ << "/" << total_ << "\n";
+      //<<  (received_/100)/(total_/10000) << "%\n";
       //<< (100*received_)/(double)total_ << " %\n";
 
     } else if(eof == ec) {
@@ -174,7 +185,8 @@ protected:
       }
     } else {
       std::cerr << "handle_video error: ec(" << ec.message() << 
-        "), status_code(" << resp.status_code << ")\n";
+        "), response dump: \n";
+      std::cerr << resp << "\n";
       delayed_get();
     }
   }
@@ -192,7 +204,6 @@ protected:
       retry_count_++;
     } else {
       std::cerr << "Exceed retry limit. Abort job.\n";
-      agent_.async_abort();
       return;
     }
   }
@@ -208,7 +219,7 @@ protected:
     }
   }
 private:
-  agent agent_;
+  agent_v2 agent_;
   std::string itag_, page_url_, video_url_;
   size_t received_;
   size_t total_;

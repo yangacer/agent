@@ -49,7 +49,15 @@ protected:
             handler_type const &handler,
             monitor_type const &monitor);
     ~context();
-
+#ifndef NDEBUG
+    void    debug_inc() { debug_cnt++; }
+    void    debug_rst() { debug_cnt = 0; }
+    int     debug() const { return debug_cnt; }
+#else
+    void    debug_inc() {}
+    void    debug_rst() {}
+    int     debug() const { return 0; }
+#endif
     http::request     request;
     http::response    response;
     unsigned char     redirect_count;
@@ -63,6 +71,9 @@ protected:
     quality_config    qos;
     boost::uint32_t   receive_since_last_limit_check;
     clock_t           last_limit_check;
+#ifndef NDEBUG
+    int               debug_cnt;
+#endif
   };
   typedef boost::shared_ptr<context> context_ptr;
 

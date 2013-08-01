@@ -52,8 +52,10 @@ int main(int argc, char ** argv)
 
   if( url.query.path.empty() )
     url.query.path = "/";
-
-  agent.async_request(url, http::request(), "GET", true,
+  
+  http::request req;
+  req.headers << http::entity::field("Connection", "close");
+  agent.async_request(url, req, "GET", false,
                       boost::bind(&qos_handler::adjust, &qos_hdl, agent_arg::qos),
                       boost::bind(&monitor, agent_arg::orient, agent_arg::total, agent_arg::transfered));
 
