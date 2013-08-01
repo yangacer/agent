@@ -88,8 +88,8 @@ protected:
           cvt << "bytes=" << received_ << "-";
           req.headers << field("Range", cvt.str());
           agent_.async_request(video_url_, req, "GET", true,
-                           bind(&tube_agent::handle_video, this, 
-                                agent_arg::error, agent_arg::response, agent_arg::buffer));
+                               bind(&tube_agent::handle_video, this, 
+                                    agent_arg::error, agent_arg::response, agent_arg::buffer));
 
         } else {
           char const* data = asio::buffer_cast<char const*>(buffer);
@@ -169,8 +169,6 @@ protected:
       received_ += size;
       ofs_.write(asio::buffer_cast<char const *>(buffer), size);
       std::cout << "\033[F\033[J"  << received_ << "/" << total_ << "\n";
-      //<<  (received_/100)/(total_/10000) << "%\n";
-      //<< (100*received_)/(double)total_ << " %\n";
 
     } else if(eof == ec) {
       received_ += size;
