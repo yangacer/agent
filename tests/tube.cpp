@@ -7,6 +7,7 @@
 #include <boost/asio/buffers_iterator.hpp>
 #include <boost/asio/deadline_timer.hpp>
 #include "agent/agent_v2.hpp"
+#include "agent/placeholders.hpp"
 #include "agent/parser.hpp"
 #include "agent/log.hpp"
 #include "agent/status_code.hpp"

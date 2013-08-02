@@ -1,4 +1,5 @@
 #include "agent/agent_v2.hpp"
+#include "agent/placeholders.hpp"
 #include "agent/log.hpp"
 #include <boost/bind.hpp>
 #include <functional>
