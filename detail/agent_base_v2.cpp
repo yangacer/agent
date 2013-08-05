@@ -105,7 +105,7 @@ void agent_base_v2::async_request(
   host->value = url.host;
   if(url.port)
     host->value += ":" + boost::lexical_cast<std::string>(url.port);
-  
+  // XXX Setup connection header as 'close' if chunked_callback is disabled?
   context_ptr ctx(new context(
       io_service_, request, chunked_callback, handler, monitor));
   
