@@ -7,7 +7,7 @@ set( test_targets
      httparser
      wget)
 
-set( example_targets tube )
+set( example_targets tubent )
   #agency)
 
 foreach( test IN LISTS test_targets )
