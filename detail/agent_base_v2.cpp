@@ -62,6 +62,9 @@ agent_base_v2::context::context(
   monitor(monitor),
   qos(),
   receive_since_last_limit_check(0)
+#ifndef NDEBUG
+  , debug_cnt(0)
+#endif
 {
   using http::get_header;
   if(request.method == "POST") {
