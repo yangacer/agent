@@ -31,6 +31,17 @@ static boost::arg<3> transfered;
 
 #else
 // agent
+static inline boost::arg<1> error   () { return boost::arg<1>(); }
+static inline boost::arg<2> request () { return boost::arg<2>(); }
+static inline boost::arg<3> response() { return boost::arg<3>(); }
+static inline boost::arg<4> buffer  () { return boost::arg<4>(); }
+static inline boost::arg<5> qos     () { return boost::arg<5>(); }
+// monitor
+static inline boost::arg<1> orient    () { return boost::arg<1>(); }
+static inline boost::arg<2> total     () { return boost::arg<2>(); }
+static inline boost::arg<3> transfered() { return boost::arg<3>(); }
+/*
+// agent
 boost::arg<1> error;
 boost::arg<2> request;
 boost::arg<3> response;
@@ -40,7 +51,7 @@ boost::arg<5> qos;
 boost::arg<1> orient;
 boost::arg<2> total;
 boost::arg<3> transfered;
-
+*/
 #endif
 
 } // namespace agent_arg
