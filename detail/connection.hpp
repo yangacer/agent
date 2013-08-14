@@ -20,6 +20,7 @@ class connection
   private boost::noncopyable
 {
   typedef boost::asio::ip::tcp tcp;
+  typedef boost::asio::deadline_timer timer_type;
   typedef tcp::resolver resolver;
 public:
   typedef boost::asio::ip::tcp::socket socket_type;
@@ -56,16 +57,10 @@ protected:
     boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
     session_type &session);
 
-  void handle_connect_timeout(
-    boost::system::error_code const &err,
-    session_type &session);
-
-  void handle_io_timeout(
-    boost::system::error_code const &err,
-    session_type &session);
-
+  void check_deadline();
 private:
   boost::asio::io_service   &io_service_;
+  timer_type                deadline_timer_;
   resolver                  resolver_;
   socket_type               socket_;
   ssl_socket_ptr ssl_socket_;

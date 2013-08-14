@@ -35,6 +35,7 @@ namespace detail {
 connection::connection(
   boost::asio::io_service &io_service)
   : io_service_(io_service), 
+    deadline_timer_(io_service),
     resolver_(io_service), 
     socket_(io_service),
     ssl_short_read_error_(335544539)
@@ -56,10 +57,8 @@ boost::asio::io_service &connection::get_io_service()
               asio_ph::error,\
               boost::ref(session))
 
-#define SET_TIMER_(Seconds, Callback) \
-  session.timer.expires_from_now( \
-    boost::posix_time::seconds(Seconds)); \
-  session.timer.async_wait( GENERIC_BIND_(Callback) );
+#define SET_TIMER_ \
+{  deadline_timer_.expires_from_now(boost::posix_time::seconds(20)); }
 
 void connection::connect(resolver::iterator endpoint, 
                          session_type &session)
@@ -83,8 +82,8 @@ void connection::connect(resolver::iterator endpoint,
     asio::async_connect(socket_, endpoint, 
                         GENERIC_BIND_(&connection::handle_connect));
   }
-  // SET_TIMER_(session.quality_config.connect(), 
-  //           &connection::handle_connect_timeout);
+  check_deadline();
+  SET_TIMER_;
 }
 
 void connection::handle_secured_connect(
@@ -98,8 +97,7 @@ void connection::handle_secured_connect(
       asio::ssl::stream_base::client, 
       GENERIC_BIND_(&connection::handle_connect));
     
-    //SET_TIMER_(session.quality_config.connect(), 
-    //            &connection::handle_connect_timeout);
+    SET_TIMER_;
   } else {
     io_service_.post(boost::bind(session.connect_handler, err));
     session.connect_handler = connect_handler_type();
@@ -111,7 +109,6 @@ void connection::handle_connect(
   session_type &session)
 {
   AGENT_TRACKING("connection::handle_connect");
-  // session.timer.cancel();
   io_service_.post(boost::bind(session.connect_handler, err));
   session.connect_handler = connect_handler_type();
 }
@@ -136,8 +133,7 @@ void connection::read_some(boost::uint32_t at_least, session_type &session)
       IO_BIND_(&connection::handle_read, session.io_buffer.size()));
   }
   
-  //SET_TIMER_(session.quality_config.read_num_bytes(at_least),
-  //           &connection::handle_io_timeout);
+  SET_TIMER_;
 }
 
 void connection::read_until(char const* pattern, boost::uint32_t at_most, session_type &session)
@@ -152,9 +148,7 @@ void connection::read_until(char const* pattern, boost::uint32_t at_most, sessio
       socket_, session.io_buffer, pattern,
       IO_BIND_(&connection::handle_read, 0));
   }
-  // FIXME this timer can not be canceled in time
-  //SET_TIMER_(session.quality_config.read_num_bytes(at_most),
-  //           &connection::handle_io_timeout);
+  SET_TIMER_;
 }
 
 void connection::handle_read(
@@ -168,13 +162,11 @@ void connection::handle_read(
     (err.category() == boost::asio::error::ssl_category &&
     err.value() == ssl_short_read_error_);
 
-  //session.timer.cancel();
   if(err && is_ssl_short_read_error_)
     err_ = boost::asio::error::eof;
   io_service_.post(
     boost::bind(session.io_handler, err_, length));
   session.io_handler = io_handler_type();
-  // TODO add speed limitation
 }
 
 void connection::write(session_type &session)
@@ -189,8 +181,7 @@ void connection::write(session_type &session)
       socket_, session.io_buffer, 
       IO_BIND_(&connection::handle_write, 0));
   }
-  // SET_TIMER_(session.quality_config.write_num_bytes(session.io_buffer.size()),
-  //           &connection::handle_io_timeout);
+  SET_TIMER_;
 }
 
 void connection::write(session_type &session, boost::asio::const_buffer buffer)
@@ -206,8 +197,7 @@ void connection::write(session_type &session, boost::asio::const_buffer buffer)
       socket_, buf, 
       IO_BIND_(&connection::handle_write, 0));
   }
-  // SET_TIMER_(session.quality_config.write_num_bytes(asio::buffer_size(buf)),
-  //           &connection::handle_io_timeout);
+  SET_TIMER_;
 }
 
 void connection::handle_write(
@@ -215,7 +205,6 @@ void connection::handle_write(
     session_type &session)
 {
   AGENT_TRACKING("connection::handle_write");
-  // session.timer.cancel();
   io_service_.post(
     boost::bind(session.io_handler, err, length));
   session.io_handler = io_handler_type();
@@ -230,28 +219,18 @@ bool connection::is_open() const
 void connection::close() 
 { 
   sys::error_code ec;
+  deadline_timer_.cancel();
   socket_.shutdown(tcp::socket::shutdown_both, ec);
-  socket_.close(ec); 
+  socket_.close(ec);
 }
 
-void connection::handle_connect_timeout(
-  boost::system::error_code const &err,
-  session_type &session)
+void connection::check_deadline()
 {
-  if(!err) {
-    AGENT_TRACKING("connection::handle_connect_timeout");
-    sys::error_code ec(sys::errc::timed_out, sys::system_category());
+  AGENT_TRACKING("connection::check_deadline");
+  if( deadline_timer_.expires_at() < timer_type::traits_type::now()) {
+    AGENT_TRACKING("connection::check_deadline(timeout)");
     close();
-  } 
-}
-
-void connection::handle_io_timeout(
-    boost::system::error_code const &err,
-    session_type &session)
-{
-  if(!err) {
-    AGENT_TRACKING("connection::handle_io_timeout");
-    sys::error_code ec(sys::errc::stream_timeout, sys::system_category());
-    close();
+  } else {
+    deadline_timer_.async_wait(boost::bind(&connection::check_deadline, shared_from_this()));
   }
 }
