@@ -2,6 +2,7 @@
 #define AGENT_CONNECTION_HPP_
 #include <boost/noncopyable.hpp>
 #include <boost/enable_shared_from_this.hpp>
+#include <boost/weak_ptr.hpp>
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/asio/io_service.hpp>
@@ -57,7 +58,7 @@ protected:
     boost::system::error_code const& err, boost::uint32_t length, boost::uint32_t offset,
     session_type &session);
 
-  void check_deadline();
+  void check_deadline(boost::weak_ptr<connection> wptr);
 private:
   boost::asio::io_service   &io_service_;
   timer_type                deadline_timer_;

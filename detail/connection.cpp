@@ -46,6 +46,7 @@ connection::connection(
 connection::~connection()
 {
   AGENT_TRACKING("connection::dtor");
+  close();
 }
 
 boost::asio::io_service &connection::get_io_service()
@@ -82,7 +83,7 @@ void connection::connect(resolver::iterator endpoint,
     asio::async_connect(socket_, endpoint, 
                         GENERIC_BIND_(&connection::handle_connect));
   }
-  check_deadline();
+  check_deadline(shared_from_this());
   SET_TIMER_;
 }
 
@@ -224,13 +225,16 @@ void connection::close()
   socket_.close(ec);
 }
 
-void connection::check_deadline()
+void connection::check_deadline(boost::weak_ptr<connection> wptr)
 {
-  AGENT_TRACKING("connection::check_deadline");
-  if( deadline_timer_.expires_at() < timer_type::traits_type::now()) {
-    AGENT_TRACKING("connection::check_deadline(timeout)");
-    close();
-  } else {
-    deadline_timer_.async_wait(boost::bind(&connection::check_deadline, shared_from_this()));
+  if(wptr.lock()) {
+    AGENT_TRACKING("connection::check_deadline");
+    if( deadline_timer_.expires_at() < timer_type::traits_type::now()) {
+      AGENT_TRACKING("connection::check_deadline(timeout)");
+      close();
+    } else {
+      wptr = shared_from_this();
+      deadline_timer_.async_wait(boost::bind(&connection::check_deadline, this, wptr));
+    }
   }
 }
