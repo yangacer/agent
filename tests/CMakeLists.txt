@@ -2,6 +2,7 @@
 set( test_targets 
      basic log io_service_pool redirect 
      range_request
+     range_request_v2
      agent_v2
      multipart
      httparser

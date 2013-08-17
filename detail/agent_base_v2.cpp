@@ -322,6 +322,8 @@ void agent_base_v2::diagnose_transmission(context_ptr ctx_ptr)
         assert(false && "Unable to receive body.");
       }
     }
+    AGENT_TRACKING_2("agent_base_v2::diagnose_transmission(expected_size)",
+                     ctx_ptr->expected_size);
     read_body(ctx_ptr);
   }
 }
@@ -370,6 +372,7 @@ void agent_base_v2::handle_read_chunk(
           to_write = ctx_ptr->session->io_buffer.size();
         }
         notify_chunk(err, to_write, ctx_ptr);
+        assert(ctx_ptr->expected_size >= to_write);
         ctx_ptr->expected_size -= to_write;
       } else {
         // Search for and parse the literal size information (i.e. hexdecimal 
@@ -442,7 +445,7 @@ void agent_base_v2::handle_read_body(
   context_ptr ctx_ptr)
 {
   AGENT_TRACKING("agent_base_v2::handle_read_body");
-  ctx_ptr->expected_size -= length;
+  ctx_ptr->expected_size -= ctx_ptr->session->io_buffer.size();
   if (!err && ctx_ptr->expected_size) {
     if( ctx_ptr->chunked_callback ) 
       notify_chunk(err, -1, ctx_ptr);
@@ -542,7 +545,7 @@ void agent_base_v2::notify_chunk(
   boost::uint32_t length,
   context_ptr ctx_ptr)
 {
-  AGENT_TRACKING("agent_base_v2::notify_chunk");
+  AGENT_TRACKING_2("agent_base_v2::notify_chunk(expected_size)", ctx_ptr->expected_size);
   char const* data = asio::buffer_cast<char const*>(
     ctx_ptr->session->io_buffer.data());
   boost::uint32_t size = std::min(
