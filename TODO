@@ -1,0 +1,3 @@
+Merge entity::url and http::request to simplify agent's interface.
+Reuse connection test case.
+Redesign asynchronous interface to enable more concurrent usage.
