@@ -134,21 +134,26 @@ void agent_base_v2::handle_resolve(
         endpoint->endpoint() ==
         connection_->socket().remote_endpoint(internal_err))
     {
-      AGENT_TRACKING("agent_base::handle_resolve(reuse) " + 
-                     endpoint->endpoint().address().to_string());
+      AGENT_TRACKING_2("agent_base_v2::handle_resolve(reuse)",
+                     endpoint->endpoint());
       if(!internal_err) {
         // XXX This is sufficient for Linux, Windows requires further
         // exploiration
         handle_connect(err, ctx_ptr);
         return;
+      } else {
+        AGENT_TRACKING_2("agent_base_v2::handle_resolve(err)", 
+                         internal_err.message());
       }
     }
-    AGENT_TRACKING("agent_base_v2::handle_resolve(reconnect) " + 
-                   endpoint->endpoint().address().to_string());
+    AGENT_TRACKING_2("agent_base_v2::handle_resolve(reconnect)",
+                   endpoint->endpoint());
     connection_.reset(new connection(io_service_));
     ctx_ptr->session->connect_handler =
       boost::bind(&agent_base_v2::handle_connect, this, _1, ctx_ptr);
     connection_->connect(endpoint, *(ctx_ptr->session));
+    AGENT_TRACKING_2("agent_base_v2::handle_resolve(own conn)",
+                    connection_.get());
   }else {
     notify_error(err, ctx_ptr);
   }
