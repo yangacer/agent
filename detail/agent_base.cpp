@@ -468,7 +468,7 @@ void agent_base::handle_read_body(
   boost::system::error_code const &err, boost::uint32_t length)
 {
   AGENT_TRACKING("agent_base::handle_read_body");
-  expected_size_ -= length;
+  expected_size_ -= session_->io_buffer.size();
   if (!err && expected_size_) {
     if( chunked_callback_) 
       notify_chunk(err);
