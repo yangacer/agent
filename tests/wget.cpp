@@ -8,9 +8,9 @@
 void print_to_stdout(boost::system::error_code const &ec, boost::asio::const_buffer buffer)
 {
 
-  if( !ec ) {
-    //char const *data = boost::asio::buffer_cast<char const*>(buffer);
-    //std::cout.write(data, boost::asio::buffer_size(buffer));
+  if( !ec || boost::asio::error::eof == ec ) {
+    char const *data = boost::asio::buffer_cast<char const*>(buffer);
+    std::cout.write(data, boost::asio::buffer_size(buffer));
   } else {
     std::cerr << "error: " << ec.message() << "\n";   
   }
@@ -57,7 +57,8 @@ int main(int argc, char ** argv)
   http::request req;
   http::get_header(req.headers, "Connection")->value = "close";
   agent.async_request(url, req, "GET", false,
-                      boost::bind(&qos_handler::adjust, &qos_hdl, agent_arg::qos),
+                      boost::bind(&print_to_stdout, agent_arg::error, agent_arg::buffer),
+                      //boost::bind(&qos_handler::adjust, &qos_hdl, agent_arg::qos),
                       boost::bind(&monitor, agent_arg::orient, agent_arg::total, agent_arg::transfered));
 
   ios.run();
