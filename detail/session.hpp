@@ -22,7 +22,6 @@ public:
   quality_config_type   quality_config;
   connect_handler_type  connect_handler;
   io_handler_type       io_handler;
-  connection_ptr        connection;
   boost::intmax_t       expected_size;
 };
 
