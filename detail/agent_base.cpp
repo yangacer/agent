@@ -78,6 +78,10 @@ void agent_base::async_get(http::entity::url const& url, bool chunked_callback,
   std::ostream os(&session_->io_buffer);
 
   chunked_callback_ = chunked_callback;
+  if(chunked_callback)
+    http::get_header(request_.headers, "Connection")->value = "keep-alive";
+  else
+    http::get_header(request_.headers, "Connection")->value = "close";
   os.flush();
   os << request_;
   start_op(url.host, determine_service(url), handler);
@@ -99,6 +103,10 @@ void agent_base::async_get(http::entity::url const &url, bool chunked_callback,
   if(size != -1 ) range << (offset + size -1);
 
   chunked_callback_ = chunked_callback;
+  if(chunked_callback)
+    http::get_header(request_.headers, "Connection")->value = "keep-alive";
+  else
+    http::get_header(request_.headers, "Connection")->value = "close";
   request_.headers << field("Range", range.str());
   os.flush();
   os << request_;
