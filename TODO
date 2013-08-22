@@ -2,3 +2,4 @@ Merge entity::url and http::request to simplify agent's interface.
 Reuse connection test case.
 Redesign asynchronous interface to enable more concurrent usage.
 Provide once_only callback interface. That is, require explicitly invoke async_op in callback to recv/send more data.
+Adjust log archiving mechanism to reduce generation files.

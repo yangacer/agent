@@ -50,5 +50,5 @@ link_directories (
   ${PROJECT_BINARY_DIR}/contrib/libarchive-3.1.2)
 
 add_executable ( arv archive.cpp )
-target_link_libraries ( arv archive ${Boost_LIBRARIES} zlib)
+target_link_libraries ( arv archive ${Boost_LIBRARIES} ${ZLIB_LIBRARY})
 
