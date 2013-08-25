@@ -4,6 +4,7 @@
 #define private protected
 #include <boost/dynamic_bitset.hpp>
 #undef private
+#include <string>
 
 template <
   typename Block = unsigned long, 
@@ -17,8 +18,8 @@ class dynamic_bitset : public boost::dynamic_bitset<Block, Alloc>
   using super_::block_index;
   using super_::bit_index;
 public:
-  using typename super_::size_type;
-  using typename super_::block_width_type;
+  typedef typename super_::size_type size_type;
+  typedef typename super_::block_width_type block_width_type;
   
   explicit
   dynamic_bitset(const Alloc& alloc = Alloc())
@@ -36,6 +37,14 @@ public:
                  const Alloc& alloc = Alloc())
   : super_(first, last, alloc)
   {}
+
+  template <typename CharT, typename Traits, typename CharAlloc>
+  explicit dynamic_bitset(
+    const std::basic_string<CharT, Traits, CharAlloc>& s,
+    typename std::basic_string<CharT, Traits, CharAlloc>::size_type pos = 0)
+  : super_(s, pos)
+  {}
+
 
   dynamic_bitset(const dynamic_bitset& b)
   : super_(b)
@@ -59,9 +68,10 @@ public:
     block_width_type ind = bit_index(pos);
     Block fore = ~m_bits[blk] & (~Block(0) << ind);
 
-    return fore ?
+    size_type rt = fore ?
       blk * bits_per_block + boost::lowest_bit(fore) :
       m_do_find_off_from(blk + 1);
+    return rt >= super_::size() ? super_::npos : rt;
   }
 private:
   size_type m_do_find_off_from(size_type first_block) const
@@ -72,7 +82,8 @@ private:
       ++i;
     if(i >= num_blocks())
       return super_::npos;
-    return i * bits_per_block + boost::lowest_bit(~m_bits[i]);
+    size_type rt = i * bits_per_block + boost::lowest_bit(~m_bits[i]);
+    return rt >= super_::size() ? super_::npos : rt;
   }
 };
 
